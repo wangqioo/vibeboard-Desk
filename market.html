@@ -483,17 +483,36 @@
 
   <script>
     const API_BASE = '';
+    const DEVICE_STORAGE_KEY = 'vibeboard-active-device';
+
+    function activeDeviceId() {
+      return localStorage.getItem(DEVICE_STORAGE_KEY) || 'taishan-gray';
+    }
     let isStaticMode = false;
+
+    function normalizeCatalogApps(data) {
+      const apps = Array.isArray(data?.apps) ? data.apps : [];
+      return apps.map(app => ({
+        ...app,
+        name: app.name || app.title || 'Untitled App',
+        preview_url: app.preview_url ? `/${String(app.preview_url).replace(/^\/+/, '')}` : '',
+        author: app.author || 'community',
+        downloads: Number(app.downloads || 0),
+        source: app.source || 'static'
+      }));
+    }
 
     // Load apps from market (API first, static fallback)
     async function loadMarketApps() {
       try {
         // Try API first
-        const res = await fetch(`${API_BASE}/api/market`);
+        const res = await fetch(`${API_BASE}/api/market`, { cache: 'no-store' });
         const data = await res.json();
-        if (data.ok && data.apps.length > 0) {
-          renderApps(data.apps);
-          updateStats(data.apps);
+        const apps = normalizeCatalogApps(data);
+        if (data.ok && apps.length > 0) {
+          isStaticMode = apps.every(app => app.source === 'static');
+          renderApps(apps);
+          updateStats(apps);
           return;
         }
       } catch (err) {
@@ -502,15 +521,16 @@
 
       // Fallback: load from static catalog.json
       try {
-        const res = await fetch('./market-apps/catalog.json');
+        const res = await fetch('./market-apps/catalog.json', { cache: 'no-store' });
         const data = await res.json();
-        if (data.ok && data.apps.length > 0) {
+        const apps = normalizeCatalogApps(data);
+        if (data.ok && apps.length > 0) {
           isStaticMode = true;
-          renderApps(data.apps);
-          updateStats(data.apps);
+          renderApps(apps);
+          updateStats(apps);
           // Update header to show static mode
           const subtitle = document.querySelector('.market-subtitle');
-          if (subtitle) subtitle.textContent = '发现和部署社区创建的硬件应用（静态模式 — 启动 VibeBoard 服务器可部署到设备）';
+          if (subtitle) subtitle.textContent = '发现和部署社区创建的硬件应用';
           return;
         }
       } catch (err) {
@@ -633,17 +653,14 @@
 
     // Deploy app to device
     async function deployApp(appId) {
-      if (isStaticMode) {
-        alert('部署功能需要启动 VibeBoard 服务器。\n\n请运行 start.bat 或执行 node server.mjs 后重试。');
-        return;
-      }
-
       showDeployOverlay();
       startDeployProgress();
 
       try {
         const res = await fetch(`${API_BASE}/api/market/${appId}/deploy`, {
-          method: 'POST'
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: activeDeviceId() })
         });
         const data = await res.json();
 

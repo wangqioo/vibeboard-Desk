@@ -13,8 +13,10 @@ const ROOT = __dirname;
 const GENERATED_DIR = path.join(ROOT, "generated", "current");
 const PREVIEWS_DIR = path.join(ROOT, "previews");
 const RUNTIME_DIR = path.join(ROOT, "runtime");
+const MARKET_APPS_DIR = path.join(ROOT, "market-apps");
 const PORT = Number(process.env.VIBEBOARD_PORT || 8789);
 const DB_PATH = path.join(ROOT, "vibeboard.db");
+const GENERATED_FILE_NAMES = ["index.html", "style.css", "app.js", "hardware_app.py", "manifest.json"];
 
 // Initialize SQLite database
 const SQL = await initSqlJs();
@@ -85,28 +87,64 @@ function run(sql, params = []) {
   saveDb();
 }
 
-const BOARD = {
-  id: process.env.VIBEBOARD_BOARD_ID || "taishan-gray",
-  label: process.env.VIBEBOARD_BOARD_LABEL || "Taishan Gray",
-  host: process.env.VIBEBOARD_BOARD_HOST || "150.158.146.192",
-  port: process.env.VIBEBOARD_BOARD_PORT || "6278",
-  user: process.env.VIBEBOARD_BOARD_USER || "linaro",
-  frpHost: "150.158.146.192",
-  frpPort: "6278",
-  targetStatic: "/home/linaro/workspace/taishan-screen/static",
-  appRoot: "/home/linaro/workspace/taishan-screen",
-  releaseRoot: "/home/linaro/workspace/vibeboard-deploy/releases",
-  backupRoot: "/home/linaro/workspace/vibeboard-deploy/backups",
-  service: "taishan-screen.service"
+const DEFAULT_BOARD_ROOTS = {
+  targetStatic: process.env.VIBEBOARD_TARGET_STATIC || "/home/linaro/workspace/taishan-screen/static",
+  appRoot: process.env.VIBEBOARD_APP_ROOT || "/home/linaro/workspace/taishan-screen",
+  releaseRoot: process.env.VIBEBOARD_RELEASE_ROOT || "/home/linaro/workspace/vibeboard-deploy/releases",
+  backupRoot: process.env.VIBEBOARD_BACKUP_ROOT || "/home/linaro/workspace/vibeboard-deploy/backups",
+  service: process.env.VIBEBOARD_BOARD_SERVICE || "taishan-screen.service"
 };
 
-const knownHosts = process.env.VIBEBOARD_KNOWN_HOSTS || path.join(os.tmpdir(), `${BOARD.id}_known_hosts`);
+const DEVICE_PROFILES = {
+  "taishan-transparent": {
+    id: "taishan-transparent",
+    label: "透明版",
+    host: "150.158.146.192",
+    port: "6223",
+    frpHost: "150.158.146.192",
+    frpPort: "6223"
+  },
+  "taishan-gray": {
+    id: "taishan-gray",
+    label: "灰色版",
+    host: process.env.VIBEBOARD_BOARD_HOST || "150.158.146.192",
+    port: process.env.VIBEBOARD_BOARD_PORT || "6278",
+    frpHost: process.env.VIBEBOARD_FRP_HOST || process.env.VIBEBOARD_BOARD_HOST || "150.158.146.192",
+    frpPort: process.env.VIBEBOARD_FRP_PORT || process.env.VIBEBOARD_BOARD_PORT || "6278"
+  },
+  "taishan-black": {
+    id: "taishan-black",
+    label: "亮黑版",
+    host: "150.158.146.192",
+    port: "6279",
+    frpHost: "150.158.146.192",
+    frpPort: "6279"
+  }
+};
+
+function createBoardConfig(deviceId = process.env.VIBEBOARD_BOARD_ID || "taishan-gray") {
+  const base = DEVICE_PROFILES[deviceId] || DEVICE_PROFILES["taishan-gray"];
+  return {
+    ...DEFAULT_BOARD_ROOTS,
+    ...base,
+    label: process.env.VIBEBOARD_BOARD_LABEL || base.label,
+    user: process.env.VIBEBOARD_BOARD_USER || "root"
+  };
+}
+
+let BOARD = createBoardConfig();
+let knownHosts = process.env.VIBEBOARD_KNOWN_HOSTS || path.join(os.tmpdir(), `${BOARD.id}_known_hosts`);
 const identityFile = process.env.VIBEBOARD_IDENTITY_FILE || path.join(os.homedir(), ".ssh", "id_ed25519");
-let boardPassword = process.env.VIBEBOARD_BOARD_PASSWORD || "152535";
+let boardPassword = process.env.VIBEBOARD_BOARD_PASSWORD || "";
+const PYTHON_BIN = process.env.VIBEBOARD_PYTHON || (process.platform === "win32" ? "python" : "python3");
 
 let currentBuild = null;
 let activeEndpoint = null;
 let lastDeploy = null;
+const boardStatusCache = new Map();
+const boardStatusRefreshPromises = new Map();
+let deviceContextQueue = Promise.resolve();
+let deployQueue = Promise.resolve();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -143,6 +181,72 @@ function json(res, status, payload) {
     "Content-Length": body.length
   });
   res.end(body);
+}
+
+function staticCacheFor(filePath) {
+  const relative = path.relative(ROOT, filePath).replaceAll(path.sep, "/");
+  const ext = path.extname(filePath).toLowerCase();
+  if (relative === "index.html" || relative === "market.html" || ext === ".html") {
+    return "no-store";
+  }
+  if (relative === "app.js" || relative === "styles.css") {
+    return "no-store";
+  }
+  if (relative.startsWith("generated/current/")) {
+    return "no-store";
+  }
+  if (relative === "market-apps/catalog.json") {
+    return "no-store";
+  }
+  if (relative.startsWith("market-apps/") || relative === "mac-frame.png" || ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp" || ext === ".gif") {
+    return "public, max-age=604800";
+  }
+  if (ext === ".css" || ext === ".js") {
+    return "public, max-age=3600";
+  }
+  return "public, max-age=300";
+}
+
+async function loadStaticMarketApps() {
+  try {
+    const raw = await fs.readFile(path.join(MARKET_APPS_DIR, "catalog.json"), "utf8");
+    const data = JSON.parse(raw);
+    const apps = Array.isArray(data.apps) ? data.apps : [];
+    return apps.map(app => ({
+      id: String(app.id || ""),
+      conversation_id: null,
+      name: app.name || app.title || "Untitled App",
+      description: app.description || "",
+      code: "",
+      preview_url: app.preview_url ? `/${String(app.preview_url).replace(/^\/+/, "")}` : "",
+      author: app.author || "community",
+      downloads: Number(app.downloads || 0),
+      created_at: app.created_at || "",
+      source: "static",
+      files: Array.isArray(app.files) ? app.files : GENERATED_FILE_NAMES
+    })).filter(app => app.id);
+  } catch {
+    return [];
+  }
+}
+
+async function readStaticMarketCode(appId) {
+  const appDir = path.normalize(path.join(MARKET_APPS_DIR, appId));
+  if (!appDir.startsWith(MARKET_APPS_DIR)) return {};
+  const codeFiles = {};
+  for (const filename of GENERATED_FILE_NAMES) {
+    try {
+      codeFiles[filename] = await fs.readFile(path.join(appDir, filename), "utf8");
+    } catch {}
+  }
+  return codeFiles;
+}
+
+function withAssetVersion(source, buildId) {
+  const version = encodeURIComponent(buildId || Date.now());
+  return String(source)
+    .replace(/(["'])\.\/style\.css(?:\?[^"']*)?\1/g, `$1./style.css?v=${version}$1`)
+    .replace(/(["'])\.\/app\.js(?:\?[^"']*)?\1/g, `$1./app.js?v=${version}$1`);
 }
 
 function shQuote(value) {
@@ -199,6 +303,54 @@ function publicBoardConfig() {
   };
 }
 
+function publicDeviceProfiles() {
+  return Object.values(DEVICE_PROFILES).map(profile => ({
+    id: profile.id,
+    label: profile.label,
+    host: profile.host,
+    port: String(profile.port),
+    frpHost: profile.frpHost,
+    frpPort: String(profile.frpPort),
+    targetStatic: DEFAULT_BOARD_ROOTS.targetStatic
+  }));
+}
+
+function deviceIdFrom(input = {}) {
+  const id = String(input.deviceId || input.boardId || "").trim();
+  return DEVICE_PROFILES[id] ? id : BOARD.id;
+}
+
+function selectDevice(deviceId = "") {
+  const next = createBoardConfig(DEVICE_PROFILES[deviceId] ? deviceId : BOARD.id);
+  if (next.id !== BOARD.id) {
+    activeEndpoint = null;
+  }
+  BOARD = next;
+  knownHosts = process.env.VIBEBOARD_KNOWN_HOSTS || path.join(os.tmpdir(), `${BOARD.id}_known_hosts`);
+  return BOARD;
+}
+
+async function withDevice(deviceId, task) {
+  const previous = deviceContextQueue;
+  let release;
+  deviceContextQueue = new Promise(resolve => {
+    release = resolve;
+  });
+  await previous;
+  const previousBoard = BOARD;
+  const previousKnownHosts = knownHosts;
+  const previousActiveEndpoint = activeEndpoint;
+  selectDevice(deviceId);
+  try {
+    return await task();
+  } finally {
+    BOARD = previousBoard;
+    knownHosts = previousKnownHosts;
+    activeEndpoint = previousActiveEndpoint;
+    release();
+  }
+}
+
 function updateBoardConfig(input = {}) {
   if (input.host !== undefined) BOARD.host = String(input.host || "").trim() || BOARD.host;
   if (input.port !== undefined) BOARD.port = String(input.port || "").trim() || BOARD.port;
@@ -212,6 +364,20 @@ function updateBoardConfig(input = {}) {
 
 function endpointLabel(endpoint) {
   return `${endpoint.name}:${endpoint.host}:${endpoint.port}`;
+}
+
+async function withDeployLock(task) {
+  const previous = deployQueue;
+  let release;
+  deployQueue = new Promise(resolve => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+  }
 }
 
 function summarizeRemoteError(error) {
@@ -264,8 +430,7 @@ sys.exit(result.returncode)
   });
 
   return new Promise((resolve, reject) => {
-    const pythonBin = process.platform === "win32" ? "python" : "python3";
-    const child = execFile(pythonBin, ["-c", script], {
+    const child = execFile(PYTHON_BIN, ["-c", script], {
       cwd: ROOT,
       timeout: timeout + 35000,
       windowsHide: true,
@@ -341,29 +506,36 @@ async function opensshExec(remoteCommand, timeout = 30000, input = "") {
   ));
 
   for (const endpoint of ordered) {
-    try {
-      const result = await new Promise((resolve, reject) => {
-        const child = execFile("ssh", sshArgs(endpoint, remoteCommand), {
-          cwd: ROOT,
-          timeout,
-          windowsHide: true,
-          maxBuffer: 1024 * 1024 * 4
-        }, (error, stdout, stderr) => {
-          if (error) {
-            error.stdout = stdout;
-            error.stderr = stderr;
-            error.endpoint = endpoint;
-            reject(error);
-            return;
-          }
-          resolve({ stdout, stderr });
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const child = execFile("ssh", sshArgs(endpoint, remoteCommand), {
+            cwd: ROOT,
+            timeout,
+            windowsHide: true,
+            maxBuffer: 1024 * 1024 * 4
+          }, (error, stdout, stderr) => {
+            if (error) {
+              error.stdout = stdout;
+              error.stderr = stderr;
+              error.endpoint = endpoint;
+              reject(error);
+              return;
+            }
+            resolve({ stdout, stderr });
+          });
+          child.stdin.end(input);
         });
-        child.stdin.end(input);
-      });
-      activeEndpoint = endpoint;
-      return result;
-    } catch (error) {
-      lastError = error;
+        activeEndpoint = endpoint;
+        return result;
+      } catch (error) {
+        lastError = error;
+        const text = `${error?.message || ""}\n${error?.stdout || ""}\n${error?.stderr || ""}`;
+        if (!/Connection closed|Connection timed out|banner exchange|kex_exchange_identification|Connection reset|timed out/i.test(text) || attempt === 3) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 900 * attempt));
+      }
     }
   }
 
@@ -405,10 +577,11 @@ async function wslSshExec(remoteCommand, timeout = 30000) {
 }
 
 async function ssh(remoteCommand, timeout = 30000) {
-  // paramiko with keyboard-interactive fallback
   let result;
   try {
-    result = await paramikoExec(remoteCommand, timeout);
+    result = boardPassword
+      ? await paramikoExec(remoteCommand, timeout)
+      : await opensshExec(remoteCommand, timeout);
   } catch (error) {
     if (!shouldUsePasswordFallback(error)) throw error;
     result = await paramikoExec(remoteCommand, timeout);
@@ -2097,28 +2270,7 @@ async function ensureInitialGenerated() {
     };
   } catch {}
 
-  let needsV2Rewrite = false;
-  try {
-    const appSource = await fs.readFile(path.join(GENERATED_DIR, "app.js"), "utf8");
-    needsV2Rewrite = !appSource.includes("window.VibeBoardHardware") || !appSource.includes("const SPEC =");
-  } catch {
-    needsV2Rewrite = true;
-  }
-
   const spec = createAppSpec(seed.prompt, seed.id);
-  if (needsV2Rewrite) {
-    const files = {
-      "index.html": generatedIndexV2(seed.prompt, seed.id, spec),
-      "style.css": generatedStyleV2(seed.prompt, seed.id, spec),
-      "app.js": generatedAppV2(seed.prompt, seed.id, spec),
-      "hardware_app.py": generatedHardwareAppV2(seed.prompt, seed.id, spec),
-      "manifest.json": JSON.stringify(generatedManifestV2(seed.prompt, seed.id, spec), null, 2)
-    };
-    await Promise.all(Object.entries(files).map(([name, content]) => (
-      fs.writeFile(path.join(GENERATED_DIR, name), content, "utf8")
-    )));
-  }
-
   const requiredFiles = {
     "index.html": () => generatedIndexV2(seed.prompt, seed.id, spec),
     "style.css": () => generatedStyleV2(seed.prompt, seed.id, spec),
@@ -2144,8 +2296,16 @@ async function buildCurrent() {
   const indexFile = path.join(currentBuild.dir, "index.html");
   const styleFile = path.join(currentBuild.dir, "style.css");
   const manifestFile = path.join(currentBuild.dir, "manifest.json");
+  try {
+    const indexSource = await fs.readFile(indexFile, "utf8");
+    const versionedIndex = withAssetVersion(indexSource, currentBuild.id);
+    if (versionedIndex !== indexSource) {
+      await fs.writeFile(indexFile, versionedIndex, "utf8");
+      currentBuild.files["index.html"] = versionedIndex;
+    }
+  } catch {}
   await execFileP(process.execPath, ["--check", appFile], { timeout: 10000 });
-  const hardwareCompile = await execFileP("python", ["-m", "py_compile", hardwareFile], { timeout: 10000 });
+  const hardwareCompile = await execFileP(PYTHON_BIN, ["-m", "py_compile", hardwareFile], { timeout: 10000 });
   for (const file of [indexFile, styleFile, appFile, hardwareFile, manifestFile]) {
     const stat = await fs.stat(file);
     if (!stat.size) throw new Error(`${path.basename(file)} is empty`);
@@ -2170,7 +2330,7 @@ async function buildCurrent() {
     ...previousManifest,
     compile: {
       web: "node --check app.js",
-      hardware: "python -m py_compile hardware_app.py",
+      hardware: `${PYTHON_BIN} -m py_compile hardware_app.py`,
       hardwareLog: hardwareCompile.stderr || hardwareCompile.stdout || "local py_compile ok"
     },
     target: BOARD.targetStatic,
@@ -2323,6 +2483,7 @@ async function verifyGoldenLoop(expectedId = currentBuild?.id) {
 
 async function deployCurrent() {
   console.log("[deployCurrent] Starting...");
+  await loadGeneratedBuild();
   if (!currentBuild) {
     console.error("[deployCurrent] No currentBuild");
     throw new Error("No generated app. Generate first.");
@@ -2392,13 +2553,35 @@ async function deployCurrent() {
   const backup = (output.match(/^backup=(.*)$/m) || [])[1] || "";
   const compilePath = `${release}/compile.log`;
   const programPath = `${release}/hardware-result.json`;
-  const compileLog = await ssh(`cat ${shQuote(compilePath)} 2>/dev/null || true`, 10000);
-  const hardwareResultRaw = await ssh(`cat ${shQuote(programPath)} 2>/dev/null || true`, 10000);
+  let compileLog = "";
+  let hardwareResultRaw = "";
+  try {
+    compileLog = await ssh(`cat ${shQuote(compilePath)} 2>/dev/null || true`, 10000);
+  } catch (error) {
+    compileLog = `post-deploy compile log unavailable: ${error.message}`;
+  }
+  try {
+    hardwareResultRaw = await ssh(`cat ${shQuote(programPath)} 2>/dev/null || true`, 10000);
+  } catch (error) {
+    hardwareResultRaw = "";
+  }
   let hardwareResult = null;
   try {
     hardwareResult = hardwareResultRaw ? JSON.parse(hardwareResultRaw) : null;
   } catch {}
-  const goldenLoop = await verifyGoldenLoop(currentBuild.id);
+  let goldenLoop = null;
+  try {
+    goldenLoop = await verifyGoldenLoop(currentBuild.id);
+  } catch (error) {
+    goldenLoop = {
+      id: currentBuild.id,
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      route: activeEndpoint ? endpointLabel(activeEndpoint) : "",
+      checks: [makeCheck("post-deploy-ssh", "post deploy verification connection", false, error.message)],
+      raw: {}
+    };
+  }
   lastDeploy = {
     id: currentBuild.id,
     backup,
@@ -2441,6 +2624,60 @@ async function boardStatus() {
   };
 }
 
+function offlineBoardStatus(error = null) {
+  const cached = boardStatusCache.get(BOARD.id)?.status || null;
+  return {
+    connected: false,
+    error: error?.message || "",
+    board: {
+      ...publicBoardConfig(),
+      targetStatic: BOARD.targetStatic
+    },
+    hostname: cached?.hostname || "",
+    kernel: cached?.kernel || "",
+    wifi: cached?.wifi || "",
+    ip: cached?.ip || "",
+    temp: cached?.temp ?? null,
+    memory: cached?.memory || "",
+    service: cached?.service || "",
+    ssh: "",
+    frpc: cached?.frpc || ""
+  };
+}
+
+function refreshBoardStatus() {
+  const deviceId = BOARD.id;
+  if (!boardStatusRefreshPromises.has(deviceId)) {
+    const refresh = boardStatus()
+      .then(status => {
+        boardStatusCache.set(deviceId, { status, fetchedAt: Date.now() });
+        return status;
+      })
+      .catch(error => {
+        const status = offlineBoardStatus(error);
+        boardStatusCache.set(deviceId, { status, fetchedAt: Date.now() });
+        return status;
+      })
+      .finally(() => {
+        boardStatusRefreshPromises.delete(deviceId);
+      });
+    boardStatusRefreshPromises.set(deviceId, refresh);
+  }
+  return boardStatusRefreshPromises.get(deviceId);
+}
+
+async function fastBoardStatus() {
+  const now = Date.now();
+  const cached = boardStatusCache.get(BOARD.id) || null;
+  if (cached?.status && now - cached.fetchedAt < 15000) {
+    return cached.status;
+  }
+  if (cached?.status) {
+    return cached.status;
+  }
+  return refreshBoardStatus();
+}
+
 async function rawBoardStatus() {
   const raw = await ssh("curl -fsS http://127.0.0.1:8765/api/status", 10000);
   return JSON.parse(raw);
@@ -2462,7 +2699,7 @@ async function serveStatic(req, res) {
     res.writeHead(200, {
       "Content-Type": mimeTypes[ext] || "application/octet-stream",
       "Content-Length": stat.size,
-      "Cache-Control": "no-store"
+      "Cache-Control": staticCacheFor(filePath)
     });
     createReadStream(filePath).pipe(res);
   } catch {
@@ -2475,15 +2712,20 @@ async function route(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (req.method === "GET" && url.pathname === "/api/board") {
-      json(res, 200, { ok: true, ...(await boardStatus()) });
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const status = await withDevice(deviceId, () => fastBoardStatus());
+      json(res, 200, { ok: true, ...status });
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/board-config") {
-      json(res, 200, { ok: true, boardConfig: publicBoardConfig() });
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const boardConfig = await withDevice(deviceId, () => publicBoardConfig());
+      json(res, 200, { ok: true, boardConfig, devices: publicDeviceProfiles() });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/board-config") {
       const body = await readBody(req);
+      selectDevice(deviceIdFrom(body || {}));
       const boardConfig = updateBoardConfig(body || {});
       let status = null;
       try {
@@ -2506,12 +2748,14 @@ async function route(req, res) {
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/status") {
-      json(res, 200, await rawBoardStatus());
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      json(res, 200, await withDevice(deviceId, () => rawBoardStatus()));
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/verify") {
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
       const id = url.searchParams.get("id") || currentBuild?.id || lastDeploy?.id || "";
-      const goldenLoop = await verifyGoldenLoop(id);
+      const goldenLoop = await withDevice(deviceId, () => verifyGoldenLoop(id));
       json(res, 200, { ok: true, goldenLoop });
       return;
     }
@@ -2539,10 +2783,12 @@ async function route(req, res) {
     }
     if (req.method === "POST" && url.pathname === "/api/deploy") {
       try {
+        const body = await readBody(req);
+        const deviceId = deviceIdFrom(body || {});
         console.log("[deploy] Starting deploy...");
-        const result = await deployCurrent();
+        const result = await withDeployLock(() => withDevice(deviceId, () => deployCurrent()));
         console.log("[deploy] Deploy completed successfully");
-        json(res, 200, { ok: true, ...result });
+        json(res, 200, { ok: true, deviceId, ...result });
       } catch (error) {
         console.error("[deploy] Error:", error.message);
         console.error("[deploy] Stack:", error.stack);
@@ -2616,7 +2862,11 @@ async function route(req, res) {
 
     // Market APIs
     if (req.method === "GET" && url.pathname === "/api/market") {
-      const apps = query("SELECT id, conversation_id, name, description, preview_url, author, downloads, created_at FROM market_apps ORDER BY created_at DESC");
+      const dbApps = query("SELECT id, conversation_id, name, description, preview_url, author, downloads, created_at FROM market_apps ORDER BY created_at DESC")
+        .map(app => ({ ...app, source: "database" }));
+      const dbIds = new Set(dbApps.map(app => app.id));
+      const staticApps = (await loadStaticMarketApps()).filter(app => !dbIds.has(app.id));
+      const apps = [...dbApps, ...staticApps];
       json(res, 200, { ok: true, apps });
       return;
     }
@@ -2633,7 +2883,7 @@ async function route(req, res) {
         // Try to read from generated/current directory
         try {
           const files = {};
-          for (const fname of ["index.html", "style.css", "app.js", "hardware_app.py", "manifest.json"]) {
+          for (const fname of GENERATED_FILE_NAMES) {
             const fpath = path.join(GENERATED_DIR, fname);
             try {
               files[fname] = await fs.readFile(fpath, "utf8");
@@ -2681,45 +2931,75 @@ async function route(req, res) {
     if (req.method === "POST" && url.pathname.startsWith("/api/market/") && url.pathname.endsWith("/deploy")) {
       const appId = url.pathname.split("/")[3];
 
-      // Get app from market
-      const apps = query("SELECT * FROM market_apps WHERE id = ?", [appId]);
-      if (apps.length === 0) {
-        json(res, 404, { ok: false, error: "App not found" });
-        return;
-      }
-
-      const app = apps[0];
-      let codeFiles = {};
       try {
-        codeFiles = JSON.parse(app.code || "{}");
-      } catch {}
+        const body = await readBody(req);
+        const deviceId = deviceIdFrom(body || {});
+        const result = await withDeployLock(async () => {
+          return withDevice(deviceId, async () => {
+            // Get app from market
+            const apps = query("SELECT * FROM market_apps WHERE id = ?", [appId]);
+            const isStaticApp = apps.length === 0;
+            if (isStaticApp) {
+              const staticApps = await loadStaticMarketApps();
+              if (!staticApps.some(app => app.id === appId)) {
+                const error = new Error("App not found");
+                error.statusCode = 404;
+                throw error;
+              }
+            }
+            if (apps.length === 0 && !isStaticApp) {
+              const error = new Error("App not found");
+              error.statusCode = 404;
+              throw error;
+            }
 
-      if (Object.keys(codeFiles).length === 0) {
-        json(res, 400, { ok: false, error: "App has no code to deploy" });
-        return;
-      }
+            const app = apps[0] || null;
+            let codeFiles = {};
+            if (app) {
+              try {
+                codeFiles = JSON.parse(app.code || "{}");
+              } catch {}
+            } else {
+              codeFiles = await readStaticMarketCode(appId);
+            }
 
-      // Write code to generated/current directory
-      for (const [filename, content] of Object.entries(codeFiles)) {
-        const filePath = path.join(GENERATED_DIR, filename);
-        await fs.writeFile(filePath, content, "utf8");
-      }
+            if (Object.keys(codeFiles).length === 0) {
+              const error = new Error("App has no code to deploy");
+              error.statusCode = 400;
+              throw error;
+            }
 
-      // Build and deploy
-      try {
-        await buildCurrent();
-        const deployResult = await deployCurrent();
+            // Write code to generated/current directory
+            for (const [filename, content] of Object.entries(codeFiles)) {
+              if (!GENERATED_FILE_NAMES.includes(filename)) continue;
+              const filePath = path.join(GENERATED_DIR, filename);
+              await fs.writeFile(filePath, content, "utf8");
+            }
+            await loadGeneratedBuild();
+            console.log("[marketDeploy] requested app:", appId, "loaded build:", currentBuild?.id, "device:", BOARD.id);
 
-        // Increment download count
-        run("UPDATE market_apps SET downloads = downloads + 1 WHERE id = ?", [appId]);
+            await buildCurrent();
+            const deployResult = await deployCurrent();
+
+            // Increment download count
+            if (app) run("UPDATE market_apps SET downloads = downloads + 1 WHERE id = ?", [appId]);
+
+            return deployResult;
+          });
+        });
 
         json(res, 200, {
           ok: true,
           message: "App deployed successfully",
-          deployId: deployResult.id
+          deviceId,
+          deployId: result.id
         });
       } catch (deployErr) {
-        json(res, 500, { ok: false, error: "Deploy failed: " + deployErr.message });
+        if (deployErr.statusCode) {
+          json(res, deployErr.statusCode, { ok: false, error: deployErr.message });
+        } else {
+          json(res, 500, { ok: false, error: "Deploy failed: " + deployErr.message });
+        }
       }
       return;
     }

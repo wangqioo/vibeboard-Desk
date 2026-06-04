@@ -137,8 +137,9 @@ VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 W
 
 ### 环境要求
 
-- **操作系统**: Windows 10/11 + WSL (Ubuntu)
+- **操作系统**: macOS、Linux，或 Windows 10/11 + WSL (Ubuntu)
 - **Node.js**: 18+
+- **Python**: 3.x（默认使用 `python3`，可通过 `VIBEBOARD_PYTHON` 覆盖）
 - **目标设备**: 泰山派 RK3566（或其他支持 SSH 的 Linux 板子）
 - **网络**: 板子通过 FRP 或局域网可达
 
@@ -146,8 +147,8 @@ VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 W
 
 ```bash
 # 克隆仓库
-git clone https://github.com/adkinsbai/vibeboard.git
-cd vibeboard
+git clone https://github.com/adkinsbai/vibeboard-Desk.git
+cd vibeboard-Desk
 
 # 安装依赖
 npm install
@@ -163,14 +164,26 @@ npm start
 通过环境变量配置：
 
 ```bash
-# 设置板子密码（必须）
+# 板子密码。未设置时只尝试 SSH key，不会使用源码内置密码。
 export VIBEBOARD_BOARD_PASSWORD="your-board-password"
 
-# 可选：自定义 LLM Provider
-export VIBEBOARD_LLM_PROVIDER="openai"
-export VIBEBOARD_LLM_MODEL="gpt-4o"
-export VIBEBOARD_LLM_API_KEY="sk-..."
+# 可选：Python 解释器，macOS/Linux 默认 python3
+export VIBEBOARD_PYTHON="python3"
+
+# 可选：板卡与 FRP 配置
+export VIBEBOARD_BOARD_HOST="150.158.146.192"
+export VIBEBOARD_BOARD_PORT="6278"
+export VIBEBOARD_BOARD_USER="linaro"
+export VIBEBOARD_FRP_HOST="150.158.146.192"
+export VIBEBOARD_FRP_PORT="6278"
+
+# 可选：部署路径
+export VIBEBOARD_TARGET_STATIC="/home/linaro/workspace/taishan-screen/static"
+export VIBEBOARD_APP_ROOT="/home/linaro/workspace/taishan-screen"
+export VIBEBOARD_BOARD_SERVICE="taishan-screen.service"
 ```
+
+LLM Provider 和 API Key 在 Web 界面的「配置模型」中设置，只保存在浏览器本地；未配置时会使用本地模板生成。
 
 ### 快速验证
 
@@ -178,7 +191,10 @@ export VIBEBOARD_LLM_API_KEY="sk-..."
 # 检查语法
 npm run check
 
-# 测试 API
+# 测试本地 API（不要求真机在线）
+curl http://127.0.0.1:8789/api/conversations
+
+# 测试真机状态代理（要求 SSH/FRP 可达）
 curl http://127.0.0.1:8789/api/status
 ```
 
@@ -601,7 +617,7 @@ db.pragma('busy_timeout = 5000');
 | 限制 | 说明 |
 |------|------|
 | 单用户 | 当前设计为单用户使用，不支持多用户并发 |
-| Windows 依赖 | SSH 命令通过 Windows 的 `sshpass` 执行，需要 WSL 或 Git Bash |
+| SSH 依赖 | 部署需要本机可执行 `ssh`，密码登录需要可用的 `sshpass` 路径或通过 SSH key 登录 |
 | LLM 依赖 | 代码生成依赖外部 LLM API，离线时只能使用本地模板 |
 | 固定分辨率 | 生成的应用固定为 480×360，不支持自适应布局 |
 | 无认证 | 没有用户认证机制，任何人可以访问和操作 |
@@ -634,14 +650,19 @@ if (provider === 'my-provider') {
 
 ### 自定义板端配置
 
-修改 `skills/vibeboard-gray-deploy/SKILL.md` 中的板端参数：
+通过环境变量覆盖板端参数：
 
-```yaml
-Board id: my-board
-SSH user: my-user
-SSH port: my-port
-App root: /path/to/my/app
-Screen size: 800x480
+```bash
+export VIBEBOARD_BOARD_ID="my-board"
+export VIBEBOARD_BOARD_LABEL="My Board"
+export VIBEBOARD_BOARD_HOST="192.168.1.50"
+export VIBEBOARD_BOARD_PORT="22"
+export VIBEBOARD_BOARD_USER="linaro"
+export VIBEBOARD_FRP_HOST="150.158.146.192"
+export VIBEBOARD_FRP_PORT="6278"
+export VIBEBOARD_TARGET_STATIC="/path/to/static"
+export VIBEBOARD_APP_ROOT="/path/to/app"
+export VIBEBOARD_BOARD_SERVICE="taishan-screen.service"
 ```
 
 ### 运行测试

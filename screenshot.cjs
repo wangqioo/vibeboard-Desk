@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   await page.setViewportSize({ width: 480, height: 360 });
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForTimeout(1500); // Wait for any animations
   await page.screenshot({ path: outPath, type: 'png' });
   await browser.close();

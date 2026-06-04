@@ -26,6 +26,9 @@ const codePreview = el("codePreview");
 const screenViewport = el("screenViewport");
 const deviceScreen = el("deviceScreen");
 const deviceFrame = el("deviceFrame");
+const deviceSelect = el("deviceSelect");
+const macPhoto = el("macPhoto");
+const macPhotoImg = el("macPhotoImg");
 const modelConfigBtn = el("modelConfigBtn");
 const modelModal = el("modelModal");
 const closeModelModal = el("closeModelModal");
@@ -47,6 +50,39 @@ let busy = false;
 let conversationInitPromise = null;
 
 const MODEL_STORAGE_KEY = "vibeboard-linux-model-settings";
+const DEVICE_STORAGE_KEY = "vibeboard-active-device";
+const deviceProfiles = {
+  "taishan-transparent": {
+    id: "taishan-transparent",
+    label: "透明版",
+    image: "/mac-frame-transparent.png",
+    previewPath: "/generated/current/index.html",
+    screen: { left: "22.6%", top: "29.1%", width: "55.4%", height: "26.0%" }
+  },
+  "taishan-gray": {
+    id: "taishan-gray",
+    label: "灰色版",
+    image: "/mac-frame.png",
+    previewPath: "/generated/current/index.html",
+    screen: { left: "30.18%", top: "31.88%", width: "44.3%", height: "21.8%" }
+  },
+  "taishan-black": {
+    id: "taishan-black",
+    label: "亮黑版",
+    image: "/mac-frame.png",
+    previewPath: "/generated/current/index.html",
+    screen: { left: "30.18%", top: "31.88%", width: "44.3%", height: "21.8%" }
+  }
+};
+
+function getActiveDeviceId() {
+  const saved = localStorage.getItem(DEVICE_STORAGE_KEY);
+  if (saved && deviceProfiles[saved]) return saved;
+  return "taishan-gray";
+}
+
+let activeDeviceId = getActiveDeviceId();
+
 const providerPresets = {
   deepseek: {
     label: "DeepSeek",
@@ -170,11 +206,21 @@ function addStageCard() {
   };
 }
 
+function withDeviceQuery(url) {
+  const href = new URL(url, window.location.origin);
+  href.searchParams.set("deviceId", activeDeviceId);
+  return `${href.pathname}${href.search}`;
+}
+
+function withDevicePayload(payload = {}) {
+  return { ...payload, deviceId: activeDeviceId };
+}
+
 async function postJson(url, payload = {}) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(withDevicePayload(payload))
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
@@ -184,7 +230,7 @@ async function postJson(url, payload = {}) {
 }
 
 async function getJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(withDeviceQuery(url), { cache: "no-store" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
     throw new Error(data.error || `HTTP ${res.status}`);
@@ -343,12 +389,61 @@ function scheduleFitDeviceFrame() {
   });
 }
 
+function makePreviewUrl(path = "/generated/current/index.html", buildId = Date.now()) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("build", String(buildId));
+  url.searchParams.set("deviceId", activeDeviceId);
+  return `${url.pathname}${url.search}`;
+}
+
+function applyDeviceProfile({ refresh = true } = {}) {
+  const profile = deviceProfiles[activeDeviceId] || deviceProfiles["taishan-gray"];
+  if (deviceSelect) deviceSelect.value = profile.id;
+  if (macPhotoImg) {
+    macPhotoImg.src = profile.image;
+    macPhotoImg.alt = `${profile.label} Taishan Board`;
+  }
+  if (macPhoto) {
+    macPhoto.dataset.device = profile.id;
+    macPhoto.style.setProperty("--screen-left", profile.screen.left);
+    macPhoto.style.setProperty("--screen-top", profile.screen.top);
+    macPhoto.style.setProperty("--screen-width", profile.screen.width);
+    macPhoto.style.setProperty("--screen-height", profile.screen.height);
+  }
+  scheduleFitDeviceFrame();
+  if (refresh) {
+    syncDeviceFrameFromCurrent();
+    refreshBoard();
+  }
+}
+
 function renderDevicePreview(prompt, statusText) {
   if (deviceFrame) {
-    deviceFrame.src = `/generated/current/index.html?t=${Date.now()}`;
+    let buildId = "";
+    try {
+      buildId = generatedFiles?.["manifest.json"] ? JSON.parse(generatedFiles["manifest.json"]).id || "" : "";
+    } catch {}
+    if (!buildId) buildId = Date.now();
+    const profile = deviceProfiles[activeDeviceId] || deviceProfiles["taishan-gray"];
+    deviceFrame.src = makePreviewUrl(profile.previewPath, buildId);
   }
-  deviceScreen.dataset.status = statusText || "";
-  deviceScreen.dataset.prompt = prompt || "";
+  if (deviceScreen) {
+    deviceScreen.dataset.status = statusText || "";
+    deviceScreen.dataset.prompt = prompt || "";
+  }
+}
+
+async function syncDeviceFrameFromCurrent() {
+  if (!deviceFrame) return;
+  const profile = deviceProfiles[activeDeviceId] || deviceProfiles["taishan-gray"];
+  try {
+    const res = await fetch("/generated/current/manifest.json", { cache: "no-store" });
+    const manifest = await res.json();
+    const buildId = manifest.id || Date.now();
+    deviceFrame.src = makePreviewUrl(profile.previewPath, buildId);
+  } catch {
+    deviceFrame.src = makePreviewUrl(profile.previewPath, Date.now());
+  }
 }
 
 function renderGoldenLoop(goldenLoop) {
@@ -436,8 +531,11 @@ async function refreshBoard() {
     el("tempState").textContent = data.temp == null ? "--" : `${data.temp}\u00b0C`;
     el("memoryState").textContent = data.memory || "--";
     const sshState = el("sshState");
-    if (sshState) sshState.textContent = data.connected ? "ssh live" : "offline";
+    if (sshState) sshState.textContent = data.connected ? "ssh live" : "ssh checking";
     if (data.kernel) el("boardOs").textContent = `Linux ${data.kernel}`;
+    if (!data.connected && !data.error) {
+      window.setTimeout(() => refreshBoard(), 3000);
+    }
   } catch (error) {
     const sshState = el("sshState");
     if (sshState) sshState.textContent = "ssh error";
@@ -492,6 +590,7 @@ async function runFlow(prompt) {
 }
 
 function addDeployButton(prompt) {
+  const profile = deviceProfiles[activeDeviceId] || deviceProfiles["taishan-gray"];
   const article = document.createElement("article");
   article.className = "msg agent";
   const avatar = document.createElement("div");
@@ -501,7 +600,7 @@ function addDeployButton(prompt) {
   body.className = "deploy-action";
   const btn = document.createElement("button");
   btn.className = "deploy-btn";
-  btn.textContent = "🚀 部署到泰山派真机";
+  btn.textContent = `部署到${profile.label}真机`;
   btn.addEventListener("click", () => runDeploy(btn));
   body.appendChild(btn);
   article.append(avatar, body);
@@ -510,10 +609,11 @@ function addDeployButton(prompt) {
 }
 
 async function runDeploy(btn) {
+  const profile = deviceProfiles[activeDeviceId] || deviceProfiles["taishan-gray"];
   if (busy) return;
   setBusy(true);
   btn.disabled = true;
-  btn.textContent = "⏳ 部署中...";
+  btn.textContent = `部署到${profile.label}中...`;
   deployState.textContent = labels.deploying;
 
   try {
@@ -521,13 +621,13 @@ async function runDeploy(btn) {
     renderHardwareRun(deployed);
     deployState.textContent = labels.done;
     renderDevicePreview("", "已写入真机");
-    addMessage("agent", `部署成功！已写入泰山派，服务已重启。Backup: ${deployed.backup || "remote backup"}`);
-    btn.textContent = "✅ 部署完成";
+    addMessage("agent", `部署成功！已写入${profile.label}，服务已重启。Backup: ${deployed.backup || "remote backup"}`);
+    btn.textContent = "部署完成";
     btn.classList.add("done");
   } catch (error) {
     deployState.textContent = labels.failed;
     addMessage("agent", `部署失败：${error.message}`);
-    btn.textContent = "❌ 部署失败，点击重试";
+    btn.textContent = "部署失败，点击重试";
     btn.disabled = false;
   } finally {
     setBusy(false);
@@ -558,6 +658,12 @@ closeStatusDrawer?.addEventListener("click", () => setStatusDrawer(false));
 modelConfigBtn?.addEventListener("click", () => setModelModal(true));
 closeModelModal?.addEventListener("click", () => setModelModal(false));
 modelProvider?.addEventListener("change", () => applyProviderPreset(modelProvider.value));
+deviceSelect?.addEventListener("change", () => {
+  activeDeviceId = deviceProfiles[deviceSelect.value] ? deviceSelect.value : "taishan-gray";
+  localStorage.setItem(DEVICE_STORAGE_KEY, activeDeviceId);
+  deployState.textContent = "device changed";
+  applyDeviceProfile();
+});
 modelForm?.addEventListener("submit", event => {
   event.preventDefault();
   saveModelSettings({
@@ -584,6 +690,7 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 });
 
 scheduleFitDeviceFrame();
+applyDeviceProfile({ refresh: true });
 syncModelUi();
 window.addEventListener("resize", scheduleFitDeviceFrame);
 if (deviceFrame) {
