@@ -4,15 +4,16 @@ set -eu
 export DISPLAY="${DISPLAY:-:0}"
 
 URL="${TAISHAN_SCREEN_URL:-http://127.0.0.1:8765/}"
-LOG="${TAISHAN_SCREEN_KIOSK_LOG:-/tmp/taishan-screen-kiosk.log}"
 USER_HOME="${HOME:-$(getent passwd "$(id -un)" | cut -d: -f6)}"
 XAUTHORITY="${XAUTHORITY:-$USER_HOME/.Xauthority}"
 PROFILE="${TAISHAN_SCREEN_CHROMIUM_PROFILE:-$USER_HOME/.cache/taishan-screen-chromium}"
+LOG_DIR="${TAISHAN_SCREEN_LOG_DIR:-$PROFILE/logs}"
+LOG="${TAISHAN_SCREEN_KIOSK_LOG:-$LOG_DIR/taishan-screen-kiosk.log}"
 CHROMIUM_BIN="${CHROMIUM_BIN:-}"
 
 export XAUTHORITY
 
-mkdir -p "$PROFILE"
+mkdir -p "$PROFILE" "$LOG_DIR"
 
 if [ -z "$CHROMIUM_BIN" ]; then
   if command -v chromium >/dev/null 2>&1; then
@@ -116,6 +117,7 @@ kill_existing_chromium() {
     --use-gl=disabled \
     --user-data-dir="$PROFILE" \
     --no-first-run \
+    --use-fake-ui-for-media-stream \
     --disable-session-crashed-bubble \
     --disable-infobars \
     --disable-translate \

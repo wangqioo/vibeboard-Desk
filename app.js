@@ -3,7 +3,9 @@ const api = {
   generate: "/api/generate",
   build: "/api/build",
   deploy: "/api/deploy",
-  verify: "/api/verify"
+  verify: "/api/verify",
+  repairContext: "/api/repair-context",
+  repair: "/api/repair"
 };
 
 const el = id => document.getElementById(id);
@@ -43,6 +45,12 @@ const modelHelpText = el("modelHelpText");
 const clearModelSettings = el("clearModelSettings");
 const goldenLoopState = el("goldenLoopState");
 const verifyList = el("verifyList");
+const repairPanel = el("repairPanel");
+const repairCategory = el("repairCategory");
+const repairAction = el("repairAction");
+const repairReason = el("repairReason");
+const repairContextBtn = el("repairContextBtn");
+const repairRunBtn = el("repairRunBtn");
 
 let generatedFiles = {};
 let activeFile = "";
@@ -224,7 +232,9 @@ async function postJson(url, payload = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
-    throw new Error(data.error || `HTTP ${res.status}`);
+    const error = new Error(data.error || `HTTP ${res.status}`);
+    error.data = data;
+    throw error;
   }
   return data;
 }
@@ -477,6 +487,21 @@ function renderGoldenLoop(goldenLoop) {
   });
 }
 
+function renderRepairClassification(classification) {
+  if (!repairPanel || !repairCategory || !repairAction || !repairReason) return;
+  const category = classification?.category || "not_classified";
+  repairPanel.dataset.category = category;
+  repairCategory.textContent = category.replaceAll("_", " ");
+  repairAction.textContent = classification?.action || "waiting for evidence";
+  repairReason.textContent = classification?.reason || "Run deploy or verification to collect device evidence before repairing generated code.";
+  if (repairRunBtn) {
+    repairRunBtn.disabled = !classification?.allowCodeRepair;
+    repairRunBtn.title = classification?.allowCodeRepair
+      ? "Use AI to patch generated app files"
+      : "Code repair is blocked until the failure is classified as generated code.";
+  }
+}
+
 function failedGoldenLoopLabels(goldenLoop) {
   return (goldenLoop?.checks || [])
     .filter(check => !check.ok)
@@ -493,6 +518,12 @@ function renderHardwareRun(result) {
   el("compileState").textContent = compileLog ? "board ok" : "local ok";
   el("programState").textContent = hardware ? "executed" : "no result";
   renderGoldenLoop(goldenLoop);
+  renderRepairClassification(result.verificationReport ? {
+    category: result.verificationReport.status === "success" ? "verified" : "unknown_failure",
+    action: "review_verification_report",
+    reason: (result.verificationReport.failedChecks || []).map(check => check.label || check.id).join(", ") || "Device verification passed.",
+    allowCodeRepair: false
+  } : null);
 
   const lines = [];
   if (compileLog) lines.push(compileLog);
@@ -516,6 +547,45 @@ function renderHardwareRun(result) {
     }, null, 2));
   }
   el("hardwareResult").textContent = lines.join("\n\n") || "waiting for hardware run";
+}
+
+async function requestRepairContext({ announce = true } = {}) {
+  const result = await postJson(api.repairContext, { prompt: promptInput?.value || "" });
+  renderRepairClassification(result.classification);
+  if (announce) {
+    addMessage("agent", `诊断结果：${result.classification?.category || "unknown"}。${result.classification?.reason || ""}`);
+  }
+  setStatusDrawer(true);
+  return result;
+}
+
+async function runRepair() {
+  if (busy) return;
+  setBusy(true);
+  deployState.textContent = "repairing";
+  try {
+    const result = await postJson(api.repair, {
+      prompt: promptInput?.value || "",
+      modelSettings: getModelPayload()
+    });
+    if (result.manifest) {
+      generatedFiles["manifest.json"] = JSON.stringify(result.manifest, null, 2);
+    }
+    await syncDeviceFrameFromCurrent();
+    deployState.textContent = "repair ready";
+    addMessage("agent", `生成代码已修复并重新编译。${result.notes || ""}`);
+  } catch (error) {
+    deployState.textContent = labels.failed;
+    addMessage("agent", `修复未执行：${error.message}`);
+    if (error.data?.repairContext?.classification) {
+      renderRepairClassification(error.data.repairContext.classification);
+      setStatusDrawer(true);
+    } else {
+      await requestRepairContext({ announce: false }).catch(() => {});
+    }
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function refreshBoard() {
@@ -627,6 +697,9 @@ async function runDeploy(btn) {
   } catch (error) {
     deployState.textContent = labels.failed;
     addMessage("agent", `部署失败：${error.message}`);
+    requestRepairContext({ announce: true }).catch(err => {
+      addMessage("agent", `诊断失败：${err.message}`);
+    });
     btn.textContent = "部署失败，点击重试";
     btn.disabled = false;
   } finally {
@@ -655,6 +728,8 @@ refreshBoardBtn?.addEventListener("click", () => setStatusDrawer(true));
 codeToggle?.addEventListener("click", () => setCodeDrawer(true));
 closeDrawer?.addEventListener("click", () => setCodeDrawer(false));
 closeStatusDrawer?.addEventListener("click", () => setStatusDrawer(false));
+repairContextBtn?.addEventListener("click", () => requestRepairContext({ announce: true }).catch(error => addMessage("agent", `诊断失败：${error.message}`)));
+repairRunBtn?.addEventListener("click", () => runRepair());
 modelConfigBtn?.addEventListener("click", () => setModelModal(true));
 closeModelModal?.addEventListener("click", () => setModelModal(false));
 modelProvider?.addEventListener("change", () => applyProviderPreset(modelProvider.value));

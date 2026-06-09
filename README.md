@@ -26,7 +26,7 @@
 
 VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 Web 界面中用中文描述想要的应用，系统会：
 
-1. 调用 LLM（支持 OpenAI / Anthropic / 自定义 Provider）生成 480×360 的 Web 应用代码
+1. 调用 OpenAI-compatible LLM（内置 DeepSeek / MiniMax / 自定义 Provider）生成 480×360 的 Web 应用代码
 2. 在本地进行语法校验和编译检查
 3. 通过 SSH 将代码上传到泰山派开发板
 4. 重启板端 Chromium Kiosk，应用立即在小屏上运行
@@ -84,7 +84,7 @@ VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 W
 | 前端 | 原生 HTML/CSS/JS，无框架依赖 |
 | 后端 | Node.js (ESM)，原生 HTTP 模块 |
 | 数据库 | SQLite (sql.js) — 对话、消息、市场应用 |
-| LLM | OpenAI API / Anthropic / 自定义 Provider |
+| LLM | DeepSeek / MiniMax / 自定义 OpenAI-compatible Provider |
 | 硬件通信 | sshpass + SSH (Paramiko 备选) |
 | 内网穿透 | FRP (Fast Reverse Proxy) |
 
@@ -95,7 +95,7 @@ VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 W
 ### 1. AI 代码生成
 
 - 输入自然语言描述，自动生成 5 个文件：`index.html`, `style.css`, `app.js`, `hardware_app.py`, `manifest.json`
-- 支持 OpenAI、Anthropic、自定义 OpenAI 兼容 Provider
+- 支持 DeepSeek、MiniMax、自定义 OpenAI 兼容 Provider
 - 可配置温度、Token 上限、系统提示词
 - LLM 不可用时自动回退到本地模板生成
 
@@ -204,7 +204,7 @@ curl http://127.0.0.1:8789/api/status
 
 ```
 vibeboard/
-├── server.mjs          # 后端主文件（2600+ 行）
+├── server.mjs          # 后端 HTTP 组合入口（路由 + 部署编排）
 │                       # - HTTP 服务器
 │                       # - LLM 代码生成
 │                       # - 编译校验
@@ -212,6 +212,14 @@ vibeboard/
 │                       # - 对话/消息 API
 │                       # - 应用市场 API
 │                       # - 板端状态代理
+│
+├── src/                # 已抽出的后端模块
+│   ├── devices.mjs           # 设备注册表、公开配置、endpoint 排序
+│   ├── marketCatalog.mjs     # 静态市场目录与市场代码读取
+│   ├── conversationStore.mjs # 对话/消息 SQLite 访问
+│   └── modelSettings.mjs     # Provider preset 与模型配置标准化
+│
+├── test/               # node:test 测试
 │
 ├── index.html          # 主页 HTML
 ├── styles.css          # 全局样式（深色主题）
@@ -274,6 +282,7 @@ runtime/
 | `POST` | `/api/generate` | AI 代码生成 |
 | `POST` | `/api/build` | 编译校验 |
 | `POST` | `/api/deploy` | 部署到板端 |
+| `GET` | `/api/verify` | 验证当前或指定 build id 的真机闭环 |
 
 ### 市场 API
 
@@ -288,6 +297,9 @@ runtime/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| `GET` | `/api/board` | 获取当前设备状态摘要 |
+| `GET` | `/api/board-config` | 获取当前设备配置和可选设备列表 |
+| `POST` | `/api/board-config` | 切换或更新当前设备配置 |
 | `GET` | `/api/status` | 获取板端状态（代理） |
 
 ---
@@ -298,8 +310,8 @@ runtime/
 
 | 配置项 | 值 |
 |--------|-----|
-| SSH 用户 | `linaro` |
-| SSH 端口 | FRP: `150.158.146.192:6278` |
+| SSH 用户 | 按设备 Profile 决定：灰板默认 `root`，透明板默认 `linaro`；可用 `VIBEBOARD_BOARD_USER` 覆盖当前设备 |
+| SSH 端口 | FRP: 灰板 `150.158.146.192:6278`；透明板 `150.158.146.192:6223` |
 | 应用目录 | `/home/linaro/workspace/taishan-screen/static/` |
 | Kiosk URL | `http://127.0.0.1:8765/` |
 | 屏幕分辨率 | 480×360 |
@@ -629,24 +641,9 @@ db.pragma('busy_timeout = 5000');
 
 ### 添加新的 LLM Provider
 
-在 `server.mjs` 的 `callLLM()` 函数中添加新的 API 调用逻辑：
+当前后端通过 OpenAI-compatible `/chat/completions` 生成应用。Provider preset 位于 `src/modelSettings.mjs`；如果服务兼容该接口，通常只需要在 Web 界面的「配置模型」里选择 Custom 并填写 Base URL、Model 和 API Key。
 
-```javascript
-if (provider === 'my-provider') {
-  const response = await fetch('https://api.my-provider.com/v1/chat', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: systemMessages.concat(userMessages)
-    })
-  });
-  // ... 处理响应
-}
-```
+新增内置 preset 时，修改 `src/modelSettings.mjs` 并补充 `test/modelSettings.test.mjs`。
 
 ### 自定义板端配置
 
@@ -671,6 +668,9 @@ export VIBEBOARD_BOARD_SERVICE="taishan-screen.service"
 # 语法检查
 npm run check
 
+# 单元测试
+npm test
+
 # 启动开发服务器
 npm start
 
@@ -689,7 +689,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## 致谢
 
 - **泰山派** — 提供 RK3566 开发板硬件支持
-- **OpenAI / Anthropic** — LLM API 服务
+- **DeepSeek / MiniMax** — LLM API 服务
 - **FRP** — 内网穿透工具
 - **Hermes Agent** — AI 辅助开发工具
 

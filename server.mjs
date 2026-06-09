@@ -5,8 +5,64 @@ import os from "node:os";
 import path from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import initSqlJs from "sql.js";
-import crypto from "node:crypto";
+import {
+  boardEndpoints,
+  createBoardConfig,
+  deviceIdFrom,
+  endpointLabel,
+  publicBoardConfig as makePublicBoardConfig,
+  publicDeviceProfiles
+} from "./src/devices.mjs";
+import {
+  GENERATED_FILE_NAMES,
+  loadStaticMarketApps as loadStaticMarketAppsFromDir,
+  mergeMarketApps,
+  readStaticMarketCode as readStaticMarketCodeFromDir
+} from "./src/marketCatalog.mjs";
+import { createConversationStore } from "./src/conversationStore.mjs";
+import { chatCompletionsUrl, normalizeModelSettings } from "./src/modelSettings.mjs";
+import {
+  buildGoldenLoopResult,
+  buildGoldenLoopRemoteCommand,
+  parseGoldenLoopSections
+} from "./src/goldenLoop.mjs";
+import { injectHardwareAppContracts } from "./src/hardwareContracts.mjs";
+import {
+  buildDeployPaths,
+  buildDeployRemoteCommand,
+  buildDeployUploadEntries,
+  buildPostDeployVerificationFailure,
+  parseDeployErrorOutput,
+  parseDeployOutput
+} from "./src/deskDeployer.mjs";
+import {
+  buildCompileManifest,
+  ensureGeneratedWorkspace,
+  loadGeneratedWorkspace,
+  readGeneratedFiles,
+  writeGeneratedFiles,
+  withAssetVersion
+} from "./src/buildArtifact.mjs";
+import {
+  buildUploadBundleCommand,
+  buildUploadTextCommand,
+  buildUploadTextPayload,
+  execOpenSsh,
+  execPasswordSsh,
+  execWslSsh,
+  runAcrossEndpoints
+} from "./src/remoteRunner.mjs";
+import {
+  capabilityPromptSections,
+  inferCapabilityIdsFromPrompt
+} from "./src/capabilities/index.mjs";
+import { buildDeskManifestMetadata, mergeProfileMetadata } from "./src/appGeneration/index.mjs";
+import { createDeployPlan, validateDeployPlan } from "./src/deployPlans/index.mjs";
+import { createRuntimeVerificationReport } from "./src/runtimeEvidence.mjs";
+import { buildRepairMessages, buildRepairRequest, normalizeRepairModelOutput } from "./src/repairLoop.mjs";
+import { classifyFailure } from "./src/failureClassifier.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -16,7 +72,6 @@ const RUNTIME_DIR = path.join(ROOT, "runtime");
 const MARKET_APPS_DIR = path.join(ROOT, "market-apps");
 const PORT = Number(process.env.VIBEBOARD_PORT || 8789);
 const DB_PATH = path.join(ROOT, "vibeboard.db");
-const GENERATED_FILE_NAMES = ["index.html", "style.css", "app.js", "hardware_app.py", "manifest.json"];
 
 // Initialize SQLite database
 const SQL = await initSqlJs();
@@ -28,26 +83,6 @@ try {
   db = new SQL.Database();
 }
 
-// Create tables
-db.run(`
-  CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
-    title TEXT DEFAULT 'New App',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
-db.run(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    conversation_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    content TEXT,
-    build_id TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-  )
-`);
 db.run(`
   CREATE TABLE IF NOT EXISTS market_apps (
     id TEXT PRIMARY KEY,
@@ -87,50 +122,8 @@ function run(sql, params = []) {
   saveDb();
 }
 
-const DEFAULT_BOARD_ROOTS = {
-  targetStatic: process.env.VIBEBOARD_TARGET_STATIC || "/home/linaro/workspace/taishan-screen/static",
-  appRoot: process.env.VIBEBOARD_APP_ROOT || "/home/linaro/workspace/taishan-screen",
-  releaseRoot: process.env.VIBEBOARD_RELEASE_ROOT || "/home/linaro/workspace/vibeboard-deploy/releases",
-  backupRoot: process.env.VIBEBOARD_BACKUP_ROOT || "/home/linaro/workspace/vibeboard-deploy/backups",
-  service: process.env.VIBEBOARD_BOARD_SERVICE || "taishan-screen.service"
-};
-
-const DEVICE_PROFILES = {
-  "taishan-transparent": {
-    id: "taishan-transparent",
-    label: "透明版",
-    host: "150.158.146.192",
-    port: "6223",
-    frpHost: "150.158.146.192",
-    frpPort: "6223"
-  },
-  "taishan-gray": {
-    id: "taishan-gray",
-    label: "灰色版",
-    host: process.env.VIBEBOARD_BOARD_HOST || "150.158.146.192",
-    port: process.env.VIBEBOARD_BOARD_PORT || "6278",
-    frpHost: process.env.VIBEBOARD_FRP_HOST || process.env.VIBEBOARD_BOARD_HOST || "150.158.146.192",
-    frpPort: process.env.VIBEBOARD_FRP_PORT || process.env.VIBEBOARD_BOARD_PORT || "6278"
-  },
-  "taishan-black": {
-    id: "taishan-black",
-    label: "亮黑版",
-    host: "150.158.146.192",
-    port: "6279",
-    frpHost: "150.158.146.192",
-    frpPort: "6279"
-  }
-};
-
-function createBoardConfig(deviceId = process.env.VIBEBOARD_BOARD_ID || "taishan-gray") {
-  const base = DEVICE_PROFILES[deviceId] || DEVICE_PROFILES["taishan-gray"];
-  return {
-    ...DEFAULT_BOARD_ROOTS,
-    ...base,
-    label: process.env.VIBEBOARD_BOARD_LABEL || base.label,
-    user: process.env.VIBEBOARD_BOARD_USER || "root"
-  };
-}
+const conversationStore = createConversationStore(db, saveDb);
+conversationStore.initSchema();
 
 let BOARD = createBoardConfig();
 let knownHosts = process.env.VIBEBOARD_KNOWN_HOSTS || path.join(os.tmpdir(), `${BOARD.id}_known_hosts`);
@@ -155,23 +148,13 @@ const mimeTypes = {
   ".svg": "image/svg+xml"
 };
 
-const MODEL_PROVIDERS = {
-  deepseek: {
-    label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com",
-    model: "deepseek-v4-flash"
-  },
-  minimax: {
-    label: "MiniMax",
-    baseUrl: "https://api.minimaxi.com/v1",
-    model: "MiniMax-M2.7"
-  },
-  custom: {
-    label: "Custom",
-    baseUrl: "",
-    model: ""
-  }
-};
+function loadStaticMarketApps() {
+  return loadStaticMarketAppsFromDir(MARKET_APPS_DIR, GENERATED_FILE_NAMES);
+}
+
+function readStaticMarketCode(appId) {
+  return readStaticMarketCodeFromDir(MARKET_APPS_DIR, appId, GENERATED_FILE_NAMES);
+}
 
 function json(res, status, payload) {
   const body = Buffer.from(JSON.stringify(payload, null, 2));
@@ -207,48 +190,6 @@ function staticCacheFor(filePath) {
   return "public, max-age=300";
 }
 
-async function loadStaticMarketApps() {
-  try {
-    const raw = await fs.readFile(path.join(MARKET_APPS_DIR, "catalog.json"), "utf8");
-    const data = JSON.parse(raw);
-    const apps = Array.isArray(data.apps) ? data.apps : [];
-    return apps.map(app => ({
-      id: String(app.id || ""),
-      conversation_id: null,
-      name: app.name || app.title || "Untitled App",
-      description: app.description || "",
-      code: "",
-      preview_url: app.preview_url ? `/${String(app.preview_url).replace(/^\/+/, "")}` : "",
-      author: app.author || "community",
-      downloads: Number(app.downloads || 0),
-      created_at: app.created_at || "",
-      source: "static",
-      files: Array.isArray(app.files) ? app.files : GENERATED_FILE_NAMES
-    })).filter(app => app.id);
-  } catch {
-    return [];
-  }
-}
-
-async function readStaticMarketCode(appId) {
-  const appDir = path.normalize(path.join(MARKET_APPS_DIR, appId));
-  if (!appDir.startsWith(MARKET_APPS_DIR)) return {};
-  const codeFiles = {};
-  for (const filename of GENERATED_FILE_NAMES) {
-    try {
-      codeFiles[filename] = await fs.readFile(path.join(appDir, filename), "utf8");
-    } catch {}
-  }
-  return codeFiles;
-}
-
-function withAssetVersion(source, buildId) {
-  const version = encodeURIComponent(buildId || Date.now());
-  return String(source)
-    .replace(/(["'])\.\/style\.css(?:\?[^"']*)?\1/g, `$1./style.css?v=${version}$1`)
-    .replace(/(["'])\.\/app\.js(?:\?[^"']*)?\1/g, `$1./app.js?v=${version}$1`);
-}
-
 function shQuote(value) {
   return `'${String(value).replaceAll("'", `'"'"'`)}'`;
 }
@@ -278,50 +219,15 @@ function shouldUsePasswordFallback(error) {
   return error?.code !== 0 || /Connection closed|Permission denied|Authentication failed|No supported authentication|kex_exchange_identification|Connection reset/i.test(text);
 }
 
-function boardEndpoints() {
-  const preferred = { name: "configured", host: BOARD.host, port: Number(BOARD.port) };
-  const frp = { name: "frp", host: BOARD.frpHost, port: Number(BOARD.frpPort) };
-  const endpoints = [frp, preferred];
-  return endpoints.filter((endpoint, index, list) => (
-    endpoint.host &&
-    endpoint.port &&
-    list.findIndex(item => item.host === endpoint.host && item.port === endpoint.port) === index
-  ));
-}
-
 function publicBoardConfig() {
-  return {
-    id: BOARD.id,
-    label: BOARD.label,
-    host: BOARD.host,
-    port: String(BOARD.port),
-    user: BOARD.user,
-    frpHost: BOARD.frpHost,
-    frpPort: String(BOARD.frpPort),
+  return makePublicBoardConfig(BOARD, {
     passwordConfigured: Boolean(boardPassword),
-    activeRoute: activeEndpoint ? endpointLabel(activeEndpoint) : ""
-  };
-}
-
-function publicDeviceProfiles() {
-  return Object.values(DEVICE_PROFILES).map(profile => ({
-    id: profile.id,
-    label: profile.label,
-    host: profile.host,
-    port: String(profile.port),
-    frpHost: profile.frpHost,
-    frpPort: String(profile.frpPort),
-    targetStatic: DEFAULT_BOARD_ROOTS.targetStatic
-  }));
-}
-
-function deviceIdFrom(input = {}) {
-  const id = String(input.deviceId || input.boardId || "").trim();
-  return DEVICE_PROFILES[id] ? id : BOARD.id;
+    activeEndpoint
+  });
 }
 
 function selectDevice(deviceId = "") {
-  const next = createBoardConfig(DEVICE_PROFILES[deviceId] ? deviceId : BOARD.id);
+  const next = createBoardConfig(deviceIdFrom({ deviceId }, BOARD.id));
   if (next.id !== BOARD.id) {
     activeEndpoint = null;
   }
@@ -362,8 +268,17 @@ function updateBoardConfig(input = {}) {
   return publicBoardConfig();
 }
 
-function endpointLabel(endpoint) {
-  return `${endpoint.name}:${endpoint.host}:${endpoint.port}`;
+function boardHttpGetCommand(url) {
+  return [
+    `url=${shQuote(url)}`,
+    "if command -v curl >/dev/null 2>&1; then",
+    "  curl -fsS \"$url\"",
+    "elif command -v wget >/dev/null 2>&1; then",
+    "  wget -qO- \"$url\"",
+    "else",
+    "  python3 -c \"import sys,urllib.request;sys.stdout.write(urllib.request.urlopen(sys.argv[1], timeout=8).read().decode())\" \"$url\"",
+    "fi"
+  ].join("\n");
 }
 
 async function withDeployLock(task) {
@@ -380,200 +295,63 @@ async function withDeployLock(task) {
   }
 }
 
-function summarizeRemoteError(error) {
-  const text = `${error?.stderr || ""}\n${error?.stdout || ""}\n${error?.message || ""}`.trim();
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const interesting = lines.find(line => /NoValidConnectionsError|Unable to connect|timed out|Authentication|Permission denied|Connection refused|Error reading SSH protocol banner|Connection closed/i.test(line));
-  return interesting || lines.slice(-1)[0] || "remote command failed";
-}
-
 async function paramikoExecOnce(endpoint, remoteCommand, timeout = 30000, input = "") {
-  const script = String.raw`
-import json
-import subprocess
-import sys
-
-cfg = json.load(sys.stdin)
-cmd_bytes = cfg["command"].encode("utf-8")
-extra_input = cfg.get("input", "").encode("utf-8") if cfg.get("input") else b""
-combined = cmd_bytes + b"\n" + extra_input if extra_input else cmd_bytes
-
-ssh_cmd = [
-    "sshpass", "-p", cfg["password"],
-    "ssh",
-    "-o", "StrictHostKeyChecking=no",
-    "-o", "ConnectTimeout=15",
-    "-o", "UserKnownHostsFile=/dev/null",
-    "-p", str(cfg["port"]),
-    cfg["user"] + "@" + cfg["host"],
-    "bash", "-s",
-]
-result = subprocess.run(
-    ssh_cmd,
-    capture_output=True,
-    timeout=max(5, int(cfg["timeout"] / 1000)) + 10,
-    input=combined,
-)
-sys.stdout.buffer.write(result.stdout)
-sys.stderr.buffer.write(result.stderr)
-sys.exit(result.returncode)
-`;
-
-  const payload = JSON.stringify({
-    host: endpoint.host,
-    port: Number(endpoint.port),
+  return execPasswordSsh({
+    execFile,
+    pythonBin: PYTHON_BIN,
+    endpoint,
     user: BOARD.user,
     password: boardPassword,
-    command: remoteCommand,
+    remoteCommand,
     timeout,
-    input
-  });
-
-  return new Promise((resolve, reject) => {
-    const child = execFile(PYTHON_BIN, ["-c", script], {
-      cwd: ROOT,
-      timeout: timeout + 35000,
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 4,
-      env: { ...process.env, PYTHONIOENCODING: "utf-8" }
-    }, (error, stdout, stderr) => {
-      if (error) {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
-    });
-    child.stdin.end(payload);
+    input,
+    cwd: ROOT,
+    env: process.env
   });
 }
 
 async function paramikoExec(remoteCommand, timeout = 30000, input = "") {
-  let lastError;
-  const ordered = [
-    ...(activeEndpoint ? [activeEndpoint] : []),
-    ...boardEndpoints()
-  ].filter((endpoint, index, list) => (
-    list.findIndex(item => item.host === endpoint.host && item.port === endpoint.port) === index
-  ));
-
-  for (const endpoint of ordered) {
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      try {
-        const result = await paramikoExecOnce(endpoint, remoteCommand, timeout, input);
-        activeEndpoint = endpoint;
-        return result;
-      } catch (error) {
-        lastError = error;
-        const text = `${error?.message || ""}\n${error?.stdout || ""}\n${error?.stderr || ""}`;
-        if (!/NoValidConnectionsError|Unable to connect|Error reading SSH protocol banner|EOFError|Connection reset|Connection closed|timed out/i.test(text) || attempt === 2) {
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 700 * attempt));
-      }
-    }
-  }
-
-  const error = new Error(`Unable to reach ${BOARD.label}. Tried ${ordered.map(endpointLabel).join(", ")}. Last error: ${summarizeRemoteError(lastError)}`);
-  error.cause = lastError;
-  error.stdout = lastError?.stdout || "";
-  error.stderr = lastError?.stderr || "";
-  throw error;
-}
-
-function sshArgs(endpoint, remoteCommand) {
-  return [
-    "-o", "BatchMode=yes",
-    "-o", "ConnectTimeout=20",
-    "-i", identityFile,
-    "-o", "IdentitiesOnly=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-o", `UserKnownHostsFile=${knownHosts}`,
-    "-p", String(endpoint.port),
-    `${BOARD.user}@${endpoint.host}`,
-    remoteCommand
-  ];
+  const { endpoint, result } = await runAcrossEndpoints({
+    activeEndpoint,
+    endpoints: boardEndpoints(BOARD),
+    attempts: 2,
+    retryPattern: /NoValidConnectionsError|Unable to connect|Error reading SSH protocol banner|EOFError|Connection reset|Connection closed|timed out/i,
+    retryDelay: attempt => 700 * attempt,
+    boardLabel: BOARD.label,
+    endpointLabel,
+    runOnce: endpoint => paramikoExecOnce(endpoint, remoteCommand, timeout, input)
+  });
+  activeEndpoint = endpoint;
+  return result;
 }
 
 async function opensshExec(remoteCommand, timeout = 30000, input = "") {
-  let lastError;
-  const ordered = [
-    ...(activeEndpoint ? [activeEndpoint] : []),
-    ...boardEndpoints()
-  ].filter((endpoint, index, list) => (
-    list.findIndex(item => item.host === endpoint.host && item.port === endpoint.port) === index
-  ));
-
-  for (const endpoint of ordered) {
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      try {
-        const result = await new Promise((resolve, reject) => {
-          const child = execFile("ssh", sshArgs(endpoint, remoteCommand), {
-            cwd: ROOT,
-            timeout,
-            windowsHide: true,
-            maxBuffer: 1024 * 1024 * 4
-          }, (error, stdout, stderr) => {
-            if (error) {
-              error.stdout = stdout;
-              error.stderr = stderr;
-              error.endpoint = endpoint;
-              reject(error);
-              return;
-            }
-            resolve({ stdout, stderr });
-          });
-          child.stdin.end(input);
-        });
-        activeEndpoint = endpoint;
-        return result;
-      } catch (error) {
-        lastError = error;
-        const text = `${error?.message || ""}\n${error?.stdout || ""}\n${error?.stderr || ""}`;
-        if (!/Connection closed|Connection timed out|banner exchange|kex_exchange_identification|Connection reset|timed out/i.test(text) || attempt === 3) {
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 900 * attempt));
-      }
-    }
-  }
-
   const authHint = boardPassword
     ? ""
     : " No VIBEBOARD_BOARD_PASSWORD is set, so only key auth was attempted.";
-  const error = new Error(`Unable to reach ${BOARD.label}. Tried ${ordered.map(endpointLabel).join(", ")}.${authHint} Last error: ${summarizeRemoteError(lastError)}`);
-  error.cause = lastError;
-  error.stdout = lastError?.stdout || "";
-  error.stderr = lastError?.stderr || "";
-  throw error;
-}
-
-async function wslSshExec(remoteCommand, timeout = 30000) {
-  const endpoint = { host: BOARD.frpHost, port: Number(BOARD.frpPort) };
-  const args = [
-    "sshpass", "-p", boardPassword,
-    "ssh", "-o", "StrictHostKeyChecking=no",
-    "-o", `ConnectTimeout=20`,
-    "-p", String(endpoint.port),
-    `${BOARD.user}@${endpoint.host}`,
-    remoteCommand
-  ];
-  return new Promise((resolve, reject) => {
-    const child = execFile("wsl.exe", args, {
-      timeout: timeout + 25000,
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 4,
-    }, (error, stdout, stderr) => {
-      if (error) {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
-    });
+  const { endpoint, result } = await runAcrossEndpoints({
+    activeEndpoint,
+    endpoints: boardEndpoints(BOARD),
+    attempts: 3,
+    retryPattern: /Connection closed|Connection timed out|banner exchange|kex_exchange_identification|Connection reset|timed out/i,
+    retryDelay: attempt => 900 * attempt,
+    boardLabel: BOARD.label,
+    authHint,
+    endpointLabel,
+    runOnce: endpoint => execOpenSsh({
+      execFile,
+      endpoint,
+      user: BOARD.user,
+      identityFile,
+      knownHosts,
+      remoteCommand,
+      timeout,
+      input,
+      cwd: ROOT
+    })
   });
+  activeEndpoint = endpoint;
+  return result;
 }
 
 async function ssh(remoteCommand, timeout = 30000) {
@@ -590,30 +368,14 @@ async function ssh(remoteCommand, timeout = 30000) {
 }
 
 async function wslSshWithInput(remoteCommand, input, timeout = 30000) {
-  const endpoint = { host: BOARD.frpHost, port: Number(BOARD.frpPort) };
-  const args = [
-    "sshpass", "-p", boardPassword,
-    "ssh", "-o", "StrictHostKeyChecking=no",
-    "-o", "ConnectTimeout=20",
-    "-p", String(endpoint.port),
-    `${BOARD.user}@${endpoint.host}`,
-    remoteCommand
-  ];
-  return new Promise((resolve, reject) => {
-    const child = execFile("wsl.exe", args, {
-      timeout: timeout + 25000,
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 4,
-    }, (error, stdout, stderr) => {
-      if (error) {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
-    });
-    child.stdin.end(input);
+  return execWslSsh({
+    execFile,
+    endpoint: { host: BOARD.frpHost, port: Number(BOARD.frpPort) },
+    user: BOARD.user,
+    password: boardPassword,
+    remoteCommand,
+    timeout,
+    input
   });
 }
 
@@ -666,15 +428,11 @@ async function scpToPath(localFile, remotePath, timeout = 30000) {
 
 async function uploadTextFile(localFile, remotePath, timeout = 30000) {
   const content = await fs.readFile(localFile);
-  const payload = `${content.toString("base64")}\n`;
-  const remote = [
-    "set -eu",
-    `tmp=${shQuote(`${remotePath}.tmp.$$`)}`,
-    "base64 -d > \"$tmp\"",
-    `mv "$tmp" ${shQuote(remotePath)}`
-  ].join("\n");
-
-  return sshWithInput(remote, payload, timeout);
+  return sshWithInput(
+    buildUploadTextCommand(remotePath),
+    buildUploadTextPayload(content),
+    timeout
+  );
 }
 
 async function uploadBundle(entries, timeout = 45000) {
@@ -684,34 +442,7 @@ async function uploadBundle(entries, timeout = 45000) {
     data: (await fs.readFile(entry.localPath)).toString("base64")
   })));
 
-  const script = String.raw`
-import base64
-import json
-import os
-import sys
-
-payload = json.load(sys.stdin)
-for item in payload["files"]:
-    p = item["path"]
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    tmp = p + ".tmp." + str(os.getpid())
-    with open(tmp, "wb") as f:
-        f.write(base64.b64decode(item["data"]))
-    os.replace(tmp, p)
-    if item.get("mode"):
-        os.chmod(p, int(item["mode"], 8))
-print("uploaded=" + str(len(payload["files"])))
-`;
-
-  const scriptB64 = Buffer.from(script).toString("base64");
-  const dataB64 = Buffer.from(JSON.stringify({ files })).toString("base64");
-  const remote = [
-    `s=/tmp/vb_upload_$$.py`,
-    `echo '${scriptB64}' | base64 -d > $s`,
-    `echo '${dataB64}' | base64 -d | python3 $s`,
-    `rm -f $s`
-  ].join('; ');
-  return ssh(remote, timeout);
+  return ssh(buildUploadBundleCommand(files), timeout);
 }
 
 async function readBody(req) {
@@ -824,26 +555,6 @@ function createAppSpec(prompt, id) {
   };
 }
 
-function normalizeModelSettings(input = {}) {
-  const providerId = String(input.provider || "deepseek").toLowerCase();
-  const preset = MODEL_PROVIDERS[providerId] || MODEL_PROVIDERS.custom;
-  const baseUrl = String(input.baseUrl || preset.baseUrl || "").trim().replace(/\/+$/, "");
-  const model = String(input.model || preset.model || "").trim();
-  const apiKey = String(input.apiKey || "").trim();
-  return {
-    provider: providerId,
-    providerLabel: preset.label || providerId,
-    baseUrl,
-    model,
-    apiKey,
-    enabled: Boolean(apiKey && baseUrl && model)
-  };
-}
-
-function chatCompletionsUrl(baseUrl) {
-  return baseUrl.endsWith("/chat/completions") ? baseUrl : `${baseUrl}/chat/completions`;
-}
-
 function stripCodeFence(text) {
   const trimmed = String(text || "").trim();
   const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
@@ -888,68 +599,8 @@ function validateGeneratedFileContracts(files, label) {
   }
 }
 
-/**
- * 兜底注入：确保 hardware_app.py 输出包含 golden-loop 必需字段
- * 无论 AI 生成什么代码，都强制注入 runtime 和 build_id
- */
-function injectHardwareAppContracts(source, buildId) {
-  const idJson = JSON.stringify(buildId);
-  
-  // 检查是否已经有 runtime 字段
-  if (source.includes('"runtime"') && source.includes('"executed_on_board"')) {
-    // 已经有正确的 runtime 字段，只检查 build_id
-    if (source.includes('"build_id"')) {
-      return source; // 两个字段都有，不需要注入
-    }
-  }
-  
-  // 注入包装器：在脚本执行后，强制添加必需字段
-  const wrapper = `
-# --- Golden-loop contract injection (auto-injected) ---
-import json as __json
-import sys as __sys
-
-__original_print = print
-__build_id = ${idJson}
-
-def __wrapped_main():
-    """Run original script and inject required fields."""
-    import io
-    __old_stdout = __sys.stdout
-    __sys.stdout = __buffer = io.StringIO()
-    try:
-        exec(__script_content, {"__name__": "__main__"})
-    finally:
-        __sys.stdout = __old_stdout
-    
-    # 解析原始输出
-    __raw_output = __buffer.getvalue().strip()
-    try:
-        __result = __json.loads(__raw_output)
-    except __json.JSONDecodeError:
-        __result = {"raw_output": __raw_output}
-    
-    # 注入必需字段
-    __result["build_id"] = __build_id
-    __result["runtime"] = "executed_on_board"
-    __result["hostname"] = __result.get("hostname", socket.gethostname())
-    
-    __original_print(__json.dumps(__result, ensure_ascii=False, indent=2))
-
-# 保存原始脚本内容
-__script_content = '''
-${source.replace(/'/g, "\\'").replace(/\\/g, "\\\\")}
-'''
-
-if __name__ == "__main__":
-    import socket
-    __wrapped_main()
-`;
-  
-  return wrapper;
-}
-
-function llmSystemPrompt() {
+function llmSystemPrompt(prompt = "") {
+  const capabilitySections = capabilityPromptSections(inferCapabilityIdsFromPrompt(prompt));
   return `You are VibeBoard WebCoding, an expert frontend and embedded Linux web-app generator.
 
 Generate a complete 480x360 web kiosk app for an RK3566 Linux board. Return ONLY a JSON object with this exact shape:
@@ -977,6 +628,7 @@ Hard requirements:
 - hardware_app.py must be valid Python 3, define BUILD_ID and PROMPT, print JSON, and include "available_apis": ["/api/status", "./hardware-result.json"]. The JSON output MUST include "runtime": "executed_on_board" and "build_id": BUILD_ID to pass golden-loop verification.
 - Use the board SDK only through /api/status and hardware-result.json. Do not run shell commands from browser JavaScript.
 - Design for a real 480x360 small display: stable fixed dimensions, no scrolling, no text overlap, clear hierarchy.
+${capabilitySections ? `\nSelected capability contracts:\n${capabilitySections}` : ""}
 `;
 }
 
@@ -1001,7 +653,7 @@ async function callChatModel(settings, prompt, id) {
     const payload = {
       model: settings.model,
       messages: [
-        { role: "system", content: llmSystemPrompt() },
+        { role: "system", content: llmSystemPrompt(prompt) },
         { role: "user", content: llmUserPrompt(prompt, id) }
       ],
       temperature: 0.2,
@@ -1909,6 +1561,11 @@ print(json.dumps(result, ensure_ascii=False, sort_keys=True))
 }
 
 function generatedManifestV2(prompt, id, spec = createAppSpec(prompt, id), extra = {}) {
+  const deskMetadata = buildDeskManifestMetadata({
+    prompt: spec.prompt || prompt,
+    profile: mergeProfileMetadata(BOARD),
+    appName: spec.title
+  });
   return {
     id,
     prompt: spec.prompt || prompt,
@@ -1918,8 +1575,141 @@ function generatedManifestV2(prompt, id, spec = createAppSpec(prompt, id), extra
     target: spec.target,
     hardwareApi: spec.hardwareApi,
     files: ["index.html", "style.css", "app.js", "hardware_app.py", "manifest.json"],
+    ...deskMetadata,
     createdAt: new Date().toISOString(),
     ...extra
+  };
+}
+
+function currentPlatformProfile() {
+  return mergeProfileMetadata(BOARD);
+}
+
+function deployPlanForCurrentBuild(timestamp = new Date().toISOString()) {
+  if (!currentBuild?.id) return null;
+  const manifest = currentBuild.manifest || {};
+  const plan = createDeployPlan({
+    profile: currentPlatformProfile(),
+    manifest,
+    buildId: currentBuild.id,
+    timestamp
+  });
+  return {
+    ...plan,
+    validation: validateDeployPlan(plan)
+  };
+}
+
+function verificationReportForGoldenLoop(goldenLoop, buildId = currentBuild?.id || lastDeploy?.id || "") {
+  return createRuntimeVerificationReport({
+    expectedBuildId: buildId,
+    deviceId: BOARD.id,
+    kioskUser: currentPlatformProfile().kioskUser || BOARD.user,
+    capabilityIds: currentBuild?.manifest?.capabilityIds || currentPlatformProfile().capabilityIds || [],
+    goldenLoop
+  });
+}
+
+async function buildCurrentRepairContext(input = {}) {
+  await loadGeneratedBuild();
+  if (!currentBuild) throw new Error("No generated app. Generate first.");
+  const files = await readGeneratedFiles(GENERATED_DIR, GENERATED_FILE_NAMES);
+  const manifest = currentBuild.manifest || {};
+  const goldenLoop = input.goldenLoop || lastDeploy?.goldenLoop || null;
+  const verificationReport = input.verificationReport
+    || lastDeploy?.verificationReport
+    || (goldenLoop ? verificationReportForGoldenLoop(goldenLoop, currentBuild.id) : {
+      status: "failure",
+      deviceId: BOARD.id,
+      expectedBuildId: currentBuild.id,
+      failedChecks: [{
+        id: "missing-device-evidence",
+        label: "device evidence is available",
+        evidence: "Run deploy or verify before requesting AI repair."
+      }]
+    });
+  const repairRequest = buildRepairRequest({
+    prompt: input.prompt || currentBuild.prompt,
+    buildId: currentBuild.id,
+    files,
+    manifest,
+    deployPlan: lastDeploy?.deployPlan || deployPlanForCurrentBuild(),
+    goldenLoop: goldenLoop || {},
+    verificationReport
+  });
+  const classification = classifyFailure({
+    verificationReport,
+    goldenLoop: goldenLoop || {}
+  });
+  return {
+    classification,
+    repairRequest,
+    messages: buildRepairMessages(repairRequest)
+  };
+}
+
+async function callRepairModel(settings, messages) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const payload = {
+      model: settings.model,
+      messages,
+      temperature: 0.1,
+      max_tokens: 10000
+    };
+    if (settings.provider === "deepseek") {
+      payload.thinking = { type: "disabled" };
+    }
+    const res = await fetch(chatCompletionsUrl(settings.baseUrl), {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${settings.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data.error?.message || data.base_resp?.status_msg || `model HTTP ${res.status}`;
+      throw new Error(message);
+    }
+    const content = data.choices?.[0]?.message?.content || "";
+    if (!content.trim()) throw new Error("Repair model returned empty content.");
+    return content;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function repairCurrentBuild(input = {}) {
+  const settings = normalizeModelSettings(input.modelSettings || {});
+  const context = await buildCurrentRepairContext(input);
+  if (!context.classification.allowCodeRepair) {
+    const error = new Error(`Code repair blocked: ${context.classification.category}.`);
+    error.repairContext = context;
+    throw error;
+  }
+  if (!settings.enabled) {
+    const error = new Error("Repair model settings not configured.");
+    error.repairContext = context;
+    throw error;
+  }
+
+  const content = await callRepairModel(settings, context.messages);
+  const raw = extractJsonObject(content);
+  const repair = normalizeRepairModelOutput(raw);
+  repair.files["hardware_app.py"] = injectHardwareAppContracts(repair.files["hardware_app.py"], currentBuild.id);
+  validateGeneratedFileContracts(repair.files, "Repair");
+  await writeGeneratedFiles(GENERATED_DIR, repair.files);
+  await loadGeneratedBuild();
+  const manifest = await buildCurrent();
+  return {
+    id: currentBuild.id,
+    notes: repair.notes,
+    manifest,
+    repairRequest: context.repairRequest
   };
 }
 
@@ -2195,98 +1985,39 @@ print(json.dumps(result, ensure_ascii=False, sort_keys=True))
 async function writeGenerated(prompt, modelSettings = {}) {
   const id = buildId();
   const { files, manifest } = await generateFilesForPrompt(prompt, id, modelSettings);
-  await fs.mkdir(GENERATED_DIR, { recursive: true });
-  await Promise.all(Object.entries(files).map(([name, content]) => (
-    fs.writeFile(path.join(GENERATED_DIR, name), content, "utf8")
-  )));
+  await writeGeneratedFiles(GENERATED_DIR, files);
   currentBuild = { id, prompt, files, dir: GENERATED_DIR, built: false, deployed: false, manifest };
   return currentBuild;
 }
 
 async function loadGeneratedBuild() {
-  const names = ["index.html", "style.css", "app.js"];
-  try {
-    await fs.access(path.join(GENERATED_DIR, "hardware_app.py"));
-    names.push("hardware_app.py");
-  } catch {}
-  try {
-    await fs.access(path.join(GENERATED_DIR, "manifest.json"));
-    names.push("manifest.json");
-  } catch {}
-  const files = {};
-  for (const name of names) {
-    files[name] = await fs.readFile(path.join(GENERATED_DIR, name), "utf8");
-  }
-
-  let manifest = {};
-  try {
-    manifest = JSON.parse(await fs.readFile(path.join(GENERATED_DIR, "manifest.json"), "utf8"));
-  } catch {
-    manifest = {};
-  }
-
-  const appFile = files["app.js"];
-  const idMatch = appFile.match(/const BUILD_ID = ("(?:\\.|[^"\\])*");/);
-  const promptMatch = appFile.match(/const PROMPT = ("(?:\\.|[^"\\])*");/);
-  const id = manifest.id || (idMatch ? JSON.parse(idMatch[1]) : "preview");
-  const prompt = manifest.prompt || (promptMatch ? JSON.parse(promptMatch[1]) : "等待生成");
-
-  currentBuild = {
-    id,
-    prompt,
-    files,
-    dir: GENERATED_DIR,
-    built: Boolean(manifest.id),
-    deployed: false
-  };
+  currentBuild = await loadGeneratedWorkspace(GENERATED_DIR, GENERATED_FILE_NAMES, {
+    id: "preview",
+    prompt: "等待生成"
+  });
   return currentBuild;
 }
 
 async function ensureInitialGenerated() {
-  await fs.mkdir(GENERATED_DIR, { recursive: true });
-  const indexPath = path.join(GENERATED_DIR, "index.html");
-  try {
-    await fs.access(indexPath);
-  } catch {
-    const initial = {
+  currentBuild = await ensureGeneratedWorkspace({
+    dir: GENERATED_DIR,
+    generatedFileNames: GENERATED_FILE_NAMES,
+    fallbackSeed: {
       id: "preview",
       prompt: "等待生成。这里会显示即将写入灰色版小电脑的同一份 480x360 小屏应用。"
-    };
-    const spec = createAppSpec(initial.prompt, initial.id);
-    await fs.writeFile(path.join(GENERATED_DIR, "index.html"), generatedIndexV2(initial.prompt, initial.id, spec), "utf8");
-    await fs.writeFile(path.join(GENERATED_DIR, "style.css"), generatedStyleV2(initial.prompt, initial.id, spec), "utf8");
-    await fs.writeFile(path.join(GENERATED_DIR, "app.js"), generatedAppV2(initial.prompt, initial.id, spec), "utf8");
-    await fs.writeFile(path.join(GENERATED_DIR, "hardware_app.py"), generatedHardwareAppV2(initial.prompt, initial.id, spec), "utf8");
-    await fs.writeFile(path.join(GENERATED_DIR, "manifest.json"), JSON.stringify(generatedManifestV2(initial.prompt, initial.id, spec), null, 2), "utf8");
-  }
-  let seed = { id: "preview", prompt: "waiting for generation" };
-  try {
-    const appSource = await fs.readFile(path.join(GENERATED_DIR, "app.js"), "utf8");
-    const idMatch = appSource.match(/const BUILD_ID = ("(?:\\.|[^"\\])*");/);
-    const promptMatch = appSource.match(/const PROMPT = ("(?:\\.|[^"\\])*");/);
-    seed = {
-      id: idMatch ? JSON.parse(idMatch[1]) : seed.id,
-      prompt: promptMatch ? JSON.parse(promptMatch[1]) : seed.prompt
-    };
-  } catch {}
-
-  const spec = createAppSpec(seed.prompt, seed.id);
-  const requiredFiles = {
-    "index.html": () => generatedIndexV2(seed.prompt, seed.id, spec),
-    "style.css": () => generatedStyleV2(seed.prompt, seed.id, spec),
-    "app.js": () => generatedAppV2(seed.prompt, seed.id, spec),
-    "hardware_app.py": () => generatedHardwareAppV2(seed.prompt, seed.id, spec),
-    "manifest.json": () => JSON.stringify(generatedManifestV2(seed.prompt, seed.id, spec), null, 2)
-  };
-  for (const [name, factory] of Object.entries(requiredFiles)) {
-    const filePath = path.join(GENERATED_DIR, name);
-    try {
-      const stat = await fs.stat(filePath);
-      if (stat.size > 0) continue;
-    } catch {}
-    await fs.writeFile(filePath, factory(), "utf8");
-  }
-  await loadGeneratedBuild();
+    },
+    bootstrapFile: "index.html",
+    makeFiles: ({ id, prompt }) => {
+      const spec = createAppSpec(prompt, id);
+      return {
+        "index.html": generatedIndexV2(prompt, id, spec),
+        "style.css": generatedStyleV2(prompt, id, spec),
+        "app.js": generatedAppV2(prompt, id, spec),
+        "hardware_app.py": generatedHardwareAppV2(prompt, id, spec),
+        "manifest.json": JSON.stringify(generatedManifestV2(prompt, id, spec), null, 2)
+      };
+    }
+  });
 }
 
 async function buildCurrent() {
@@ -2325,17 +2056,13 @@ async function buildCurrent() {
     previousManifest = {};
   }
   const spec = createAppSpec(currentBuild.prompt, currentBuild.id);
-  const manifest = {
-    ...generatedManifestV2(currentBuild.prompt, currentBuild.id, spec),
-    ...previousManifest,
-    compile: {
-      web: "node --check app.js",
-      hardware: `${PYTHON_BIN} -m py_compile hardware_app.py`,
-      hardwareLog: hardwareCompile.stderr || hardwareCompile.stdout || "local py_compile ok"
-    },
-    target: BOARD.targetStatic,
-    builtAt: new Date().toISOString()
-  };
+  const manifest = buildCompileManifest({
+    generatedManifest: generatedManifestV2(currentBuild.prompt, currentBuild.id, spec),
+    previousManifest,
+    pythonBin: PYTHON_BIN,
+    hardwareCompileOutput: hardwareCompile,
+    targetStatic: BOARD.targetStatic
+  });
   await fs.writeFile(path.join(currentBuild.dir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
   currentBuild.files["manifest.json"] = JSON.stringify(manifest, null, 2);
   currentBuild.manifest = manifest;
@@ -2381,104 +2108,21 @@ async function capturePreview() {
   return null;
 }
 
-function parseFirstBuildId(text) {
-  const match = String(text || "").match(/vb-[a-z0-9]+-[a-f0-9]{6}/i);
-  return match ? match[0] : "";
-}
-
-function parseJsonSafe(text) {
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return null;
-  }
-}
-
-function makeCheck(id, label, ok, evidence = "") {
-  return {
-    id,
-    label,
-    ok: Boolean(ok),
-    evidence: String(evidence || "").trim().slice(0, 500)
-  };
-}
-
 async function verifyGoldenLoop(expectedId = currentBuild?.id) {
   if (!expectedId) throw new Error("No build id available for golden-loop verification.");
 
-  const remote = [
-    "set -u",
-    `target=${shQuote(BOARD.targetStatic)}`,
-    `service=${shQuote(BOARD.service)}`,
-    "printf '__SECTION__:service\\n'",
-    "systemctl is-active \"$service\" 2>/dev/null || true",
-    "printf '\\n__SECTION__:http_index_id\\n'",
-    "curl -fsS http://127.0.0.1:8765/app.js 2>/dev/null | grep -o 'vb-[a-z0-9]*-[a-f0-9]*' | head -1 || true",
-    "printf '\\n__SECTION__:static_index_id\\n'",
-    "grep -o 'vb-[a-z0-9]*-[a-f0-9]*' \"$target/index.html\" \"$target/app.js\" 2>/dev/null | head -1 || true",
-    "printf '\\n__SECTION__:manifest\\n'",
-    "cat \"$target/manifest.json\" 2>/dev/null || true",
-    "printf '\\n__SECTION__:program\\n'",
-    "cat \"$target/hardware-result.json\" 2>/dev/null || true",
-    "printf '\\n__SECTION__:status\\n'",
-    "curl -fsS http://127.0.0.1:8765/api/status 2>/dev/null || true",
-    "printf '\\n__SECTION__:geometry\\n'",
-    "DISPLAY=:0 XAUTHORITY=/home/linaro/.Xauthority xwininfo -root 2>/dev/null | grep -E 'Absolute upper-left|Width|Height' || true",
-    "printf '\\n__SECTION__:kiosk\\n'",
-    "{ ps -C chromium -o pid=,args= 2>/dev/null; ps -C chromium-bin -o pid=,args= 2>/dev/null; } | head -n 3 || true"
-  ].join("\n");
-
-  const raw = await ssh(remote, 30000);
-  const sections = {};
-  let current = "";
-  for (const line of raw.split(/\r?\n/)) {
-    const marker = line.match(/^__SECTION__:(.+)$/);
-    if (marker) {
-      current = marker[1];
-      sections[current] = "";
-    } else if (current) {
-      sections[current] += `${line}\n`;
-    }
-  }
-  Object.keys(sections).forEach(key => {
-    sections[key] = sections[key].trim();
+  const remote = buildGoldenLoopRemoteCommand({
+    targetStatic: BOARD.targetStatic,
+    service: BOARD.service,
+    xAuthority: BOARD.xAuthority
   });
-
-  const manifest = parseJsonSafe(sections.manifest);
-  const program = parseJsonSafe(sections.program);
-  const status = parseJsonSafe(sections.status);
-  const geometry = sections.geometry || "";
-  const kiosk = sections.kiosk || "";
-  const httpIndexId = parseFirstBuildId(sections.http_index_id);
-  const staticIndexId = parseFirstBuildId(sections.static_index_id);
-  const service = (sections.service || "").split(/\r?\n/).find(Boolean) || "";
-
-  const checks = [
-    makeCheck("program-runtime", "board program executed", program?.runtime === "executed_on_board", program ? JSON.stringify({
-      build_id: program.build_id,
-      runtime: program.runtime,
-      hostname: program.hostname,
-      cpu_temp_c: program.cpu_temp_c,
-      loadavg: program.loadavg
-    }) : sections.program),
-    makeCheck("program-build-id", "program build id matches", program?.build_id === expectedId, program?.build_id || "missing"),
-    makeCheck("http-build-id", "board HTTP build id matches", httpIndexId === expectedId, httpIndexId || sections.http_index_id || "missing"),
-    makeCheck("static-build-id", "board static build id matches", staticIndexId === expectedId, staticIndexId || sections.static_index_id || "missing"),
-    makeCheck("manifest-build-id", "manifest build id matches", manifest?.id === expectedId, manifest?.id || "missing"),
-    makeCheck("status-api", "board status API responded", Boolean(status?.hostname || status?.network || status?.services), sections.status),
-    makeCheck("service-active", `${BOARD.service} active`, service === "active", service || "missing"),
-    makeCheck("display-geometry", "display geometry is 480x360", /Width:\s*480\b/.test(geometry) && /Height:\s*360\b/.test(geometry), geometry || "xwininfo unavailable"),
-    makeCheck("kiosk-window", "kiosk launched at 480x360 scale 1", /--window-size=480,360/.test(kiosk) && /--force-device-scale-factor=1/.test(kiosk), kiosk || "chromium process not found")
-  ];
-
-  return {
-    id: expectedId,
-    ok: checks.every(check => check.ok),
-    checkedAt: new Date().toISOString(),
+  const raw = await ssh(remote, 30000);
+  return buildGoldenLoopResult({
+    expectedId,
+    sections: parseGoldenLoopSections(raw),
     route: activeEndpoint ? endpointLabel(activeEndpoint) : "",
-    checks,
-    raw: sections
-  };
+    serviceName: BOARD.service
+  });
 }
 
 async function deployCurrent() {
@@ -2493,66 +2137,44 @@ async function deployCurrent() {
     console.log("[deployCurrent] Building...");
     await buildCurrent();
   }
+  const deployPlan = deployPlanForCurrentBuild();
+  if (deployPlan && !deployPlan.validation.ok) {
+    throw new Error(`Deploy plan invalid: ${deployPlan.validation.errors.join("; ")}`);
+  }
 
-  const release = `${BOARD.releaseRoot}/${currentBuild.id}`;
+  const {
+    release,
+    compilePath,
+    programPath
+  } = buildDeployPaths(BOARD, currentBuild.id);
   console.log("[deployCurrent] Creating release dir:", release);
   await ssh(`mkdir -p ${shQuote(release)} ${shQuote(BOARD.backupRoot)}`, 45000);
   console.log("[deployCurrent] Uploading files...");
-  await uploadBundle([
-    ...["index.html", "style.css", "app.js", "hardware_app.py", "manifest.json"].map(name => ({
-      localPath: path.join(currentBuild.dir, name),
-      remotePath: `${release}/${name}`
-    })),
-    {
-      localPath: path.join(RUNTIME_DIR, "start-kiosk.sh"),
-      remotePath: `${BOARD.appRoot}/start-kiosk.sh`,
-      mode: "0755"
-    }
-  ], 60000);
+  await uploadBundle(buildDeployUploadEntries({
+    currentBuild,
+    board: BOARD,
+    runtimeDir: RUNTIME_DIR
+  }), 60000);
 
-  const remote = [
-    "set -u",
-    `target=${shQuote(BOARD.targetStatic)}`,
-    `release=${shQuote(release)}`,
-    `backup=${shQuote(`${BOARD.backupRoot}/static-${currentBuild.id}`)}`,
-    `app_root=${shQuote(BOARD.appRoot)}`,
-    "compile_log=\"$release/compile.log\"",
-    "program_result=\"$release/hardware-result.json\"",
-    "mkdir -p \"$backup\" || exit 10",
-    "python3 -m py_compile \"$release/hardware_app.py\" >\"$compile_log\" 2>&1 || exit 16",
-    "echo \"board py_compile ok: $release/hardware_app.py\" >>\"$compile_log\"",
-    "python3 \"$release/hardware_app.py\" >\"$program_result\" 2>>\"$compile_log\" || exit 17",
-    "echo \"board program executed: $program_result\" >>\"$compile_log\"",
-    // 兜底注入：确保 hardware-result.json 包含 runtime 字段
-    `grep -q '"runtime"' "$program_result" || python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['runtime']='executed_on_board';d.setdefault('build_id','${currentBuild.id}');json.dump(d,open(p,'w'),indent=2)" "$program_result" && echo "injected runtime" >>"$compile_log" || echo "inject-failed" >>"$compile_log"`,
-    "cp -a \"$target/.\" \"$backup/\" || exit 11",
-    "cp \"$release/index.html\" \"$target/index.html\" || exit 12",
-    "cp \"$release/style.css\" \"$target/style.css\" || exit 13",
-    "cp \"$release/app.js\" \"$target/app.js\" || exit 14",
-    "cp \"$release/manifest.json\" \"$target/manifest.json\" || exit 15",
-    "cp \"$program_result\" \"$target/hardware-result.json\" || exit 18",
-    "chmod +x \"$app_root/start-kiosk.sh\" || exit 15",
-    `sudo systemctl restart ${shQuote(BOARD.service)} || exit 20`,
-    "sleep 5",
-    `state=$(systemctl is-active ${shQuote(BOARD.service)} || true)`,
-    "if [ \"$state\" != \"active\" ]; then systemctl status taishan-screen.service --no-pager || true; exit 21; fi",
-    "pkill -9 chromium-bin 2>/dev/null || true",
-    "pkill -9 chromium 2>/dev/null || true",
-    "sleep 1",
-    "nohup \"$app_root/start-kiosk.sh\" >/tmp/vibeboard-kiosk-reload-request.log 2>&1 </dev/null &",
-    "sleep 5",
-    "kiosk=$( { ps -C chromium -o pid=,args= 2>/dev/null; ps -C chromium-bin -o pid=,args= 2>/dev/null; } | head -n 1 || true )",
-    "curl -fsS http://127.0.0.1:8765/ >/tmp/vibeboard-deploy-check.html || exit 30",
-    "printf 'service=%s\\nbackup=%s\\ncompile=%s\\nprogram=%s\\nkiosk=%s\\n' \"$state\" \"$backup\" \"$compile_log\" \"$program_result\" \"$kiosk\""
-  ].join("\n");
+  const remote = buildDeployRemoteCommand({
+    board: BOARD,
+    buildId: currentBuild.id
+  });
 
   console.log("[deployCurrent] Executing remote commands...");
-  const output = await ssh(remote, 45000);
+  let output;
+  try {
+    output = await ssh(remote, 45000);
+  } catch (error) {
+    const deployError = parseDeployErrorOutput(error.stdout || "");
+    if (deployError.step) {
+      error.message = `Deploy failed on board at ${deployError.step} (exit ${deployError.code}). Compile log: ${deployError.compilePath || "unavailable"}`;
+    }
+    throw error;
+  }
   console.log("[deployCurrent] Remote execution completed");
   currentBuild.deployed = true;
-  const backup = (output.match(/^backup=(.*)$/m) || [])[1] || "";
-  const compilePath = `${release}/compile.log`;
-  const programPath = `${release}/hardware-result.json`;
+  const { backup } = parseDeployOutput(output);
   let compileLog = "";
   let hardwareResultRaw = "";
   try {
@@ -2573,17 +2195,17 @@ async function deployCurrent() {
   try {
     goldenLoop = await verifyGoldenLoop(currentBuild.id);
   } catch (error) {
-    goldenLoop = {
-      id: currentBuild.id,
-      ok: false,
-      checkedAt: new Date().toISOString(),
+    goldenLoop = buildPostDeployVerificationFailure({
+      buildId: currentBuild.id,
       route: activeEndpoint ? endpointLabel(activeEndpoint) : "",
-      checks: [makeCheck("post-deploy-ssh", "post deploy verification connection", false, error.message)],
-      raw: {}
-    };
+      error
+    });
   }
+  const verificationReport = verificationReportForGoldenLoop(goldenLoop, currentBuild.id);
   lastDeploy = {
     id: currentBuild.id,
+    deviceId: BOARD.id,
+    deployPlan,
     backup,
     output,
     compileLog,
@@ -2591,13 +2213,14 @@ async function deployCurrent() {
     hardwareResultRaw,
     programPath,
     compilePath,
-    goldenLoop
+    goldenLoop,
+    verificationReport
   };
   return lastDeploy;
 }
 
 async function boardStatus() {
-  const raw = await ssh("curl -fsS http://127.0.0.1:8765/api/status", 10000);
+  const raw = await ssh(boardHttpGetCommand("http://127.0.0.1:8765/api/status"), 10000);
   const status = JSON.parse(raw);
   return {
     connected: true,
@@ -2679,7 +2302,7 @@ async function fastBoardStatus() {
 }
 
 async function rawBoardStatus() {
-  const raw = await ssh("curl -fsS http://127.0.0.1:8765/api/status", 10000);
+  const raw = await ssh(boardHttpGetCommand("http://127.0.0.1:8765/api/status"), 10000);
   return JSON.parse(raw);
 }
 
@@ -2712,20 +2335,20 @@ async function route(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (req.method === "GET" && url.pathname === "/api/board") {
-      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()), BOARD.id);
       const status = await withDevice(deviceId, () => fastBoardStatus());
       json(res, 200, { ok: true, ...status });
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/board-config") {
-      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()), BOARD.id);
       const boardConfig = await withDevice(deviceId, () => publicBoardConfig());
       json(res, 200, { ok: true, boardConfig, devices: publicDeviceProfiles() });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/board-config") {
       const body = await readBody(req);
-      selectDevice(deviceIdFrom(body || {}));
+      selectDevice(deviceIdFrom(body || {}, BOARD.id));
       const boardConfig = updateBoardConfig(body || {});
       let status = null;
       try {
@@ -2748,15 +2371,21 @@ async function route(req, res) {
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/status") {
-      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()), BOARD.id);
       json(res, 200, await withDevice(deviceId, () => rawBoardStatus()));
       return;
     }
     if (req.method === "GET" && url.pathname === "/api/verify") {
-      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()));
+      const deviceId = deviceIdFrom(Object.fromEntries(url.searchParams.entries()), BOARD.id);
       const id = url.searchParams.get("id") || currentBuild?.id || lastDeploy?.id || "";
-      const goldenLoop = await withDevice(deviceId, () => verifyGoldenLoop(id));
-      json(res, 200, { ok: true, goldenLoop });
+      const result = await withDevice(deviceId, async () => {
+        const goldenLoop = await verifyGoldenLoop(id);
+        return {
+          goldenLoop,
+          verificationReport: verificationReportForGoldenLoop(goldenLoop, id)
+        };
+      });
+      json(res, 200, { ok: true, ...result });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/generate") {
@@ -2778,17 +2407,28 @@ async function route(req, res) {
       const manifest = await buildCurrent();
       // Capture preview screenshot after successful build
       capturePreview().catch(err => console.error("[build] preview capture failed:", err.message));
-      json(res, 200, { ok: true, summary: `${manifest.files.length} files`, manifest });
+      json(res, 200, {
+        ok: true,
+        summary: `${manifest.files.length} files`,
+        manifest,
+        deployPlan: deployPlanForCurrentBuild()
+      });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/deploy") {
       try {
         const body = await readBody(req);
-        const deviceId = deviceIdFrom(body || {});
+        const deviceId = deviceIdFrom(body || {}, BOARD.id);
         console.log("[deploy] Starting deploy...");
         const result = await withDeployLock(() => withDevice(deviceId, () => deployCurrent()));
-        console.log("[deploy] Deploy completed successfully");
-        json(res, 200, { ok: true, deviceId, ...result });
+        const ok = result.goldenLoop?.ok !== false;
+        console.log(ok ? "[deploy] Deploy completed successfully" : "[deploy] Deploy completed with verification failures");
+        json(res, ok ? 200 : 500, {
+          ok,
+          deviceId,
+          error: ok ? undefined : "Deploy copied files but post-deploy verification failed.",
+          ...result
+        });
       } catch (error) {
         console.error("[deploy] Error:", error.message);
         console.error("[deploy] Stack:", error.stack);
@@ -2803,18 +2443,36 @@ async function route(req, res) {
       }
       return;
     }
+    if (req.method === "POST" && url.pathname === "/api/repair-context") {
+      const body = await readBody(req);
+      const result = await buildCurrentRepairContext(body || {});
+      json(res, 200, { ok: true, ...result });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/repair") {
+      try {
+        const body = await readBody(req);
+        const result = await repairCurrentBuild(body || {});
+        json(res, 200, { ok: true, ...result });
+      } catch (error) {
+        json(res, 400, {
+          ok: false,
+          error: error.message,
+          repairContext: error.repairContext
+        });
+      }
+      return;
+    }
 
     // Conversation APIs
     if (req.method === "GET" && url.pathname === "/api/conversations") {
-      const conversations = query("SELECT * FROM conversations ORDER BY updated_at DESC");
+      const conversations = conversationStore.listConversations();
       json(res, 200, { ok: true, conversations });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/conversations") {
-      const id = crypto.randomUUID();
-      const title = "New App";
-      run("INSERT INTO conversations (id, title) VALUES (?, ?)", [id, title]);
-      json(res, 200, { ok: true, id, title });
+      const conversation = conversationStore.createConversation();
+      json(res, 200, { ok: true, id: conversation.id, title: conversation.title });
       return;
     }
     // Delete conversation and its messages
@@ -2822,8 +2480,7 @@ async function route(req, res) {
       const parts = url.pathname.split("/");
       const convId = parts[3];
       if (convId && !parts[4]) {
-        run("DELETE FROM messages WHERE conversation_id = ?", [convId]);
-        run("DELETE FROM conversations WHERE id = ?", [convId]);
+        conversationStore.deleteConversation(convId);
         json(res, 200, { ok: true });
       } else {
         json(res, 400, { ok: false, error: "Invalid conversation ID" });
@@ -2832,30 +2489,20 @@ async function route(req, res) {
     }
     if (req.method === "GET" && url.pathname.startsWith("/api/conversations/") && url.pathname.endsWith("/messages")) {
       const convId = url.pathname.split("/")[3];
-      const messages = query("SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC", [convId]);
+      const messages = conversationStore.listMessages(convId);
       json(res, 200, { ok: true, messages });
       return;
     }
     if (req.method === "POST" && url.pathname.startsWith("/api/conversations/") && url.pathname.endsWith("/messages")) {
       const convId = url.pathname.split("/")[3];
       const body = await readBody(req);
-      const { role, content, build_id } = body;
-      run("INSERT INTO messages (conversation_id, role, content, build_id) VALUES (?, ?, ?, ?)", [convId, role, content, build_id || null]);
-      // Update conversation title if first user message
-      if (role === "user") {
-        const msgCount = query("SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?", [convId]);
-        if (msgCount[0]?.count === 1) {
-          const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-          run("UPDATE conversations SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [title, convId]);
-        }
-      }
+      conversationStore.appendMessage(convId, body);
       json(res, 200, { ok: true });
       return;
     }
     if (req.method === "DELETE" && url.pathname.startsWith("/api/conversations/")) {
       const convId = url.pathname.split("/")[3];
-      run("DELETE FROM messages WHERE conversation_id = ?", [convId]);
-      run("DELETE FROM conversations WHERE id = ?", [convId]);
+      conversationStore.deleteConversation(convId);
       json(res, 200, { ok: true });
       return;
     }
@@ -2864,9 +2511,7 @@ async function route(req, res) {
     if (req.method === "GET" && url.pathname === "/api/market") {
       const dbApps = query("SELECT id, conversation_id, name, description, preview_url, author, downloads, created_at FROM market_apps ORDER BY created_at DESC")
         .map(app => ({ ...app, source: "database" }));
-      const dbIds = new Set(dbApps.map(app => app.id));
-      const staticApps = (await loadStaticMarketApps()).filter(app => !dbIds.has(app.id));
-      const apps = [...dbApps, ...staticApps];
+      const apps = mergeMarketApps(dbApps, await loadStaticMarketApps());
       json(res, 200, { ok: true, apps });
       return;
     }
@@ -2882,13 +2527,7 @@ async function route(req, res) {
       } else {
         // Try to read from generated/current directory
         try {
-          const files = {};
-          for (const fname of GENERATED_FILE_NAMES) {
-            const fpath = path.join(GENERATED_DIR, fname);
-            try {
-              files[fname] = await fs.readFile(fpath, "utf8");
-            } catch {}
-          }
+          const files = await readGeneratedFiles(GENERATED_DIR, GENERATED_FILE_NAMES);
           if (Object.keys(files).length > 0) {
             codeJson = JSON.stringify(files);
           }
@@ -2907,7 +2546,7 @@ async function route(req, res) {
           preview_url = `/api/previews/${currentBuild.id}.png`;
         } catch {}
       }
-      const id = crypto.randomUUID();
+      const id = randomUUID();
       const author = "user";
 
       run(
@@ -2933,7 +2572,7 @@ async function route(req, res) {
 
       try {
         const body = await readBody(req);
-        const deviceId = deviceIdFrom(body || {});
+        const deviceId = deviceIdFrom(body || {}, BOARD.id);
         const result = await withDeployLock(async () => {
           return withDevice(deviceId, async () => {
             // Get app from market
@@ -2970,11 +2609,10 @@ async function route(req, res) {
             }
 
             // Write code to generated/current directory
-            for (const [filename, content] of Object.entries(codeFiles)) {
-              if (!GENERATED_FILE_NAMES.includes(filename)) continue;
-              const filePath = path.join(GENERATED_DIR, filename);
-              await fs.writeFile(filePath, content, "utf8");
-            }
+            const generatedFiles = Object.fromEntries(Object.entries(codeFiles).filter(([filename]) => (
+              GENERATED_FILE_NAMES.includes(filename)
+            )));
+            await writeGeneratedFiles(GENERATED_DIR, generatedFiles);
             await loadGeneratedBuild();
             console.log("[marketDeploy] requested app:", appId, "loaded build:", currentBuild?.id, "device:", BOARD.id);
 
@@ -2992,7 +2630,10 @@ async function route(req, res) {
           ok: true,
           message: "App deployed successfully",
           deviceId,
-          deployId: result.id
+          deployId: result.id,
+          deployPlan: result.deployPlan,
+          goldenLoop: result.goldenLoop,
+          verificationReport: result.verificationReport
         });
       } catch (deployErr) {
         if (deployErr.statusCode) {

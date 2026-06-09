@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check app.js"
+    "check": "node --check server.mjs && node --check app.js",
+    "test": "node --test"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

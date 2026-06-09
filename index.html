@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VibeBoard Linux MVP</title>
+  <title>VibeBoard Desk</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
       <div class="sidebar-header">
         <div class="brand">
           <div class="mark" aria-hidden="true"><span></span><span></span><span></span></div>
-          <span class="brand-name">VibeBoard</span>
+          <span class="brand-name">VibeBoard Desk</span>
         </div>
         <button class="ghost-btn" id="newConversationBtn" type="button">+ 新建</button>
       </div>
@@ -34,23 +34,31 @@
           <button class="icon-btn" id="sidebarToggle" type="button" aria-label="Toggle sidebar">☰</button>
           <div class="brand">
             <div>
-              <p>VibeBoard Linux</p>
-              <h1 id="currentConversationTitle">Hardware Vibe Coding MVP</h1>
+              <p>VibeBoard Desk</p>
+              <h1 id="currentConversationTitle">AI Hardware Workbench</h1>
+              <span class="platform-subtitle">生成 / 编译 / 部署 / 设备证据</span>
             </div>
           </div>
         </div>
         <div class="top-actions">
           <button class="icon-btn" id="codeToggle" type="button" aria-label="Open generated code">&lt;/&gt;</button>
-          <button class="ghost-btn" id="refreshBoardBtn" type="button">Status</button>
-          <button class="ghost-btn model-btn" id="modelConfigBtn" type="button"><span id="modelDot"></span><span id="modelButtonLabel">Model</span></button>
+          <button class="ghost-btn" id="refreshBoardBtn" type="button">运行状态</button>
+          <button class="ghost-btn model-btn" id="modelConfigBtn" type="button"><span id="modelDot"></span><span id="modelButtonLabel">模型</span></button>
         </div>
       </header>
+      <div class="platform-stage-strip" aria-label="Desk workflow">
+        <span>生成</span>
+        <span>编译</span>
+        <span>部署</span>
+        <span>设备证据</span>
+        <span>诊断修复</span>
+      </div>
 
       <section class="workspace">
         <section class="agent-panel">
           <div class="panel-head">
             <div>
-              <p class="kicker">Agent Chat</p>
+              <p class="kicker">AI 工作流</p>
               <h2>和 Agent 对话</h2>
             </div>
             <span class="pill" id="agentState">idle</span>
@@ -81,7 +89,7 @@
             <div class="device-card">
               <div class="device-toolbar">
                 <div>
-                  <p class="kicker">Live Hardware Preview</p>
+                  <p class="kicker">Linux 小屏预览</p>
                   <h2>小屏效果</h2>
                 </div>
                 <div class="device-actions">
@@ -129,7 +137,7 @@
   <aside class="drawer status-drawer" id="statusDrawer" aria-hidden="true">
     <div class="drawer-head">
       <div>
-        <p class="kicker">Board Runtime</p>
+        <p class="kicker">设备证据</p>
         <h2 id="boardName">Taishan Gray <span>RK3566</span></h2>
       </div>
       <button class="icon-btn" id="closeStatusDrawer" type="button" aria-label="Close board status">x</button>
@@ -157,6 +165,20 @@
       <div><span>Program</span><strong id="programState">not run</strong></div>
       <div><span>Golden loop</span><strong id="goldenLoopState">not verified</strong></div>
     </div>
+    <section class="repair-panel" id="repairPanel" aria-label="Repair diagnosis">
+      <div class="repair-head">
+        <div>
+          <span>Diagnosis</span>
+          <strong id="repairCategory">not classified</strong>
+        </div>
+        <small id="repairAction">waiting for evidence</small>
+      </div>
+      <p id="repairReason">Run deploy or verification to collect device evidence before repairing generated code.</p>
+      <div class="repair-actions">
+        <button class="ghost-btn" id="repairContextBtn" type="button">诊断链路</button>
+        <button class="primary-btn" id="repairRunBtn" type="button">修复生成代码</button>
+      </div>
+    </section>
     <div class="verify-list" id="verifyList" aria-label="Golden loop verification"></div>
     <pre class="deploy-log" id="hardwareResult">waiting for hardware run</pre>
   </aside>
@@ -165,7 +187,7 @@
     <div class="modal-panel">
       <div class="drawer-head">
         <div>
-          <p class="kicker">Model Settings</p>
+          <p class="kicker">模型设置</p>
           <h2 id="modelModalTitle">配置大模型</h2>
         </div>
         <button class="icon-btn" id="closeModelModal" type="button" aria-label="Close model settings">x</button>
