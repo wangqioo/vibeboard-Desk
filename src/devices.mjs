@@ -47,6 +47,15 @@ export const DEVICE_PROFILES = {
     frpHost: "150.158.146.192",
     frpPort: "6279",
     ...BLACK_BOARD_ROOTS
+  },
+  "taishan-investor": {
+    id: "taishan-investor",
+    label: "投资人版",
+    host: "150.158.146.192",
+    port: "6292",
+    frpHost: "150.158.146.192",
+    frpPort: "6292",
+    user: "linaro"
   }
 };
 

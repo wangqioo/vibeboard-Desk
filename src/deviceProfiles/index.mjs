@@ -98,6 +98,28 @@ export const LINUX_DEVICE_PROFILES = Object.freeze({
       "browser-microphone-rms"
     ]),
     ...BLACK_BOARD_RUNTIME_PATHS
+  }),
+  "taishan-investor": Object.freeze({
+    id: "taishan-investor",
+    label: "投资人版",
+    host: "150.158.146.192",
+    port: "6292",
+    frpHost: "150.158.146.192",
+    frpPort: "6292",
+    user: "linaro",
+    display: TAISHAN_DISPLAY,
+    os: Object.freeze({
+      family: "linux",
+      boardFamily: "taishan-rk3566",
+      desktopStack: "x11",
+      kioskRuntime: "chromium"
+    }),
+    capabilityIds: TAISHAN_COMMON_CAPABILITIES,
+    pitfalls: Object.freeze([
+      "Display uses the shared fbdev Xorg configuration and may require a cold boot after driver changes."
+    ]),
+    verificationProbes: Object.freeze(["board-http-status", "static-build-id", "kiosk-process"]),
+    ...DEFAULT_RUNTIME_PATHS
   })
 });
 

@@ -15,9 +15,10 @@ test("publicDeviceProfiles exposes the three Taishan devices", () => {
   assert.deepEqual(profiles.map(profile => profile.id), [
     "taishan-transparent",
     "taishan-gray",
-    "taishan-black"
+    "taishan-black",
+    "taishan-investor"
   ]);
-  assert.deepEqual(profiles.map(profile => profile.label), ["透明版", "灰色版", "亮黑版"]);
+  assert.deepEqual(profiles.map(profile => profile.label), ["透明版", "灰色版", "亮黑版", "投资人版"]);
 });
 
 test("createBoardConfig defaults to taishan-gray", () => {
@@ -51,6 +52,19 @@ test("createBoardConfig uses the black board lckfb runtime paths", () => {
   assert.equal(board.dbusSessionBusAddress, "unix:path=/run/user/1000/bus");
 });
 
+test("createBoardConfig uses the investor board FRP endpoint and linaro user", () => {
+  const board = createBoardConfig("taishan-investor", {});
+  assert.equal(board.id, "taishan-investor");
+  assert.equal(board.label, "投资人版");
+  assert.equal(board.host, "150.158.146.192");
+  assert.equal(board.port, "6292");
+  assert.equal(board.frpHost, "150.158.146.192");
+  assert.equal(board.frpPort, "6292");
+  assert.equal(board.user, "linaro");
+  assert.equal(board.targetStatic, "/home/linaro/workspace/taishan-screen/static");
+  assert.equal(board.appRoot, "/home/linaro/workspace/taishan-screen");
+});
+
 test("publicDeviceProfiles exposes per-device static targets", () => {
   const profiles = publicDeviceProfiles({});
   assert.equal(
@@ -60,6 +74,10 @@ test("publicDeviceProfiles exposes per-device static targets", () => {
   assert.equal(
     profiles.find(profile => profile.id === "taishan-black").targetStatic,
     "/home/lckfb/workspace/taishan-screen/static"
+  );
+  assert.equal(
+    profiles.find(profile => profile.id === "taishan-investor").targetStatic,
+    "/home/linaro/workspace/taishan-screen/static"
   );
 });
 

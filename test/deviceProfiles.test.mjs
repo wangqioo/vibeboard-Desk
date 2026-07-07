@@ -15,9 +15,11 @@ test("listLinuxDeviceProfiles exposes the initial Taishan Linux devices", () => 
   assert.deepEqual(profiles.map(profile => profile.id), [
     "taishan-transparent",
     "taishan-gray",
-    "taishan-black"
+    "taishan-black",
+    "taishan-investor"
   ]);
   assert.deepEqual(profiles.map(profile => profile.display), [
+    { width: 480, height: 360 },
     { width: 480, height: 360 },
     { width: 480, height: 360 },
     { width: 480, height: 360 }
@@ -65,6 +67,26 @@ test("taishan-black profile preserves deployment paths and kiosk runtime facts",
   assert.equal(profile.kioskHome, "/home/lckfb");
   assert.equal(profile.xdgRuntimeDir, "/run/user/1000");
   assert.equal(profile.dbusSessionBusAddress, "unix:path=/run/user/1000/bus");
+});
+
+test("taishan-investor profile uses the investor FRP endpoint and linaro runtime", () => {
+  const profile = getLinuxDeviceProfile("taishan-investor");
+  const publicProfile = publicLinuxDeviceProfile(profile);
+
+  assert.equal(profile.id, "taishan-investor");
+  assert.equal(profile.label, "投资人版");
+  assert.equal(profile.host, "150.158.146.192");
+  assert.equal(profile.port, "6292");
+  assert.equal(profile.frpHost, "150.158.146.192");
+  assert.equal(profile.frpPort, "6292");
+  assert.equal(profile.user, "linaro");
+  assert.equal(profile.targetStatic, "/home/linaro/workspace/taishan-screen/static");
+  assert.equal(profile.appRoot, "/home/linaro/workspace/taishan-screen");
+  assert.deepEqual(publicProfile.capabilityIds, [
+    "screen.kiosk-480x360",
+    "status.board-http",
+    "hardware-result.python"
+  ]);
 });
 
 test("deviceCapabilityIds reports common Taishan capabilities plus black-board microphone support", () => {
