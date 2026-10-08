@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "id": "physics-playground",
+    "name": "物理实验台",
+    "description": "ATOM 物理实验台 · 离线交互",
+    "entry": "index.html",
+    "layout": "fullscreen",
+    "icon": "icon.svg",
+    "theme_ui": "controls"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#101a28;color:#dce9f3;font:13px sans-serif}canvas{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none}.top{position:fixed;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.top b{font-size:16px}.stats{font:10px monospace;color:#8badc6}.modes{position:fixed;top:39px;left:12px;display:flex;gap:6px}.bottom{position:fixed;bottom:10px;left:12px;right:12px;display:flex;gap:6px}button{border:1px solid #40546b;border-radius:7px;color:#dce9f3;background:#17263ae8;font:13px sans-serif;padding:8px 12px;min-height:36px}.bottom button{flex:1}button.active{background:#f5bb70;color:#192638;border-color:#f5bb70}.hint{position:fixed;bottom:55px;left:14px;pointer-events:none;color:#7f9cb2;font-size:11px}</style></head><body><canvas id=\"world\"></canvas><div class=\"top\"><b>物理实验台</b><span id=\"stats\" class=\"stats\"></span></div><div class=\"modes\"><button data-mode=\"pile\" class=\"active\">碰撞</button><button data-mode=\"domino\">多米诺</button><button data-mode=\"bridge\">悬索桥</button><button data-mode=\"sling\">弹弓</button></div><div id=\"hint\" class=\"hint\">拖动任意物体 · 添加形状观察碰撞</div><div class=\"bottom\"><button id=\"spawn\">添物体</button><button id=\"gravity\">重力：开</button><button id=\"pause\">暂停</button><button id=\"reset\">重置</button></div><script crossorigin=\"anonymous\" src=\"matter.min.js\"></script><script crossorigin=\"anonymous\" src=\"main.js\"></script></body></html>\n",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><title>物理实验台</title><g transform=\"translate(5 5) scale(.84)\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M11 52h42M15 30h15v15H15ZM36 15l13 22H25Z\" /><circle cx=\"43\" cy=\"44\" r=\"8\" /></g></svg>"
+  }
+}

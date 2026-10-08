@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brainsy Face - Interactive Demo</title>
+  <link rel="stylesheet" href="snappy.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: linear-gradient(135deg, #1a1d2e 0%, #2a2d3a 100%);
+      color: #E0E0E0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: #00CED1;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(0, 206, 209, 0.5);
+    }
+
+    .tagline {
+      color: #FF6B9D;
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+    }
+
+    .description {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #A0A0A0;
+    }
+
+    main {
+      background: rgba(42, 45, 58, 0.8);
+      border: 3px solid #00CED1;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0, 206, 209, 0.3);
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .demo-section {
+      margin-bottom: 40px;
+    }
+
+    .demo-section h2 {
+      color: #00CED1;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    #brainsy-container {
+      margin: 30px auto;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    button {
+      background: transparent;
+      border: 2px solid #00CED1;
+      color: #00CED1;
+      padding: 12px 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover {
+      background: #00CED1;
+      color: #2A2D3A;
+      box-shadow: 0 0 20px rgba(0, 206, 209, 0.5);
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.active {
+      background: #00CED1;
+      color: #2A2D3A;
+    }
+
+    .info-box {
+      background: rgba(0, 206, 209, 0.1);
+      border-left: 4px solid #00CED1;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+
+    .info-box h3 {
+      color: #00CED1;
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+
+    .info-box p {
+      color: #C0C0C0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .event-log {
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid #2A2D3A;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      color: #A0A0A0;
+    }
+
+    .event-log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .event-log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .event-time {
+      color: #FF6B9D;
+      margin-right: 10px;
+    }
+
+    .event-name {
+      color: #00CED1;
+      font-weight: bold;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 0.85rem;
+    }
+
+    .status-label {
+      color: #A0A0A0;
+    }
+
+    .status-value {
+      color: #00CED1;
+      font-weight: bold;
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: #00CED1;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Brainsy Face</h1>
+    <p class="tagline">Your Friendly 90s-Inspired AI Companion</p>
+    <p class="description">
+      Interactive demo of the Brainsy Face animation system. 
+      Inspired by Nickelodeon's Face, reimagined for modern AI assistants.
+    </p>
+  </header>
+
+  <main>
+    <!-- Face Display -->
+    <div class="demo-section">
+      <h2>Meet Brainsy</h2>
+      <div id="brainsy-container"></div>
+    </div>
+
+    <!-- State Controls -->
+    <div class="demo-section">
+      <h2>Emotional States</h2>
+      <div class="controls">
+        <button onclick="changeState('idle')" class="state-btn active" data-state="idle">
+          😌 Idle
+        </button>
+        <button onclick="changeState('happy')" class="state-btn" data-state="happy">
+          😄 Happy
+        </button>
+        <button onclick="changeState('thinking')" class="state-btn" data-state="thinking">
+          🤔 Thinking
+        </button>
+        <button onclick="changeState('speaking')" class="state-btn" data-state="speaking">
+          💬 Speaking
+        </button>
+        <button onclick="changeState('listening')" class="state-btn" data-state="listening">
+          👂 Listening
+        </button>
+        <button onclick="changeState('processing')" class="state-btn" data-state="processing">
+          ⚙️ Processing
+        </button>
+        <button onclick="changeState('sleeping')" class="state-btn" data-state="sleeping">
+          💤 Sleeping
+        </button>
+      </div>
+    </div>
+
+    <!-- Action Controls -->
+    <div class="demo-section">
+      <h2>Actions</h2>
+      <div class="controls">
+        <button onclick="face.blink()">👁️ Blink</button>
+        <button onclick="face.look('left')">⬅️ Look Left</button>
+        <button onclick="face.look('right')">➡️ Look Right</button>
+        <button onclick="face.look('up')">⬆️ Look Up</button>
+        <button onclick="face.look('down')">⬇️ Look Down</button>
+        <button onclick="face.look('center')">🎯 Center</button>
+      </div>
+    </div>
+
+    <!-- Info Boxes -->
+    <div class="info-box">
+      <h3>💡 What is this?</h3>
+      <p>
+        Brainsy Face is a lightweight, animated character face designed for AI assistants, 
+        chatbots, and interactive applications. It uses pure CSS animations and vanilla JavaScript—no 
+        frameworks required. Each emotional state has unique animations and behaviors.
+      </p>
+    </div>
+
+    <!-- Event Log -->
+    <div class="demo-section">
+      <h2>Event Log</h2>
+      <div id="event-log" class="event-log">
+        <div class="event-log-entry">
+          <span class="event-time">Ready</span>
+          <span class="event-name">Brainsy Face initialized</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div>
+        <span class="status-label">Current State:</span>
+        <span class="status-value" id="current-state">idle</span>
+      </div>
+      <div>
+        <span class="status-label">Total Blinks:</span>
+        <span class="status-value" id="blink-count">0</span>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>
+      Built with ❤️ by Brainsy | 
+      <a href="https://github.com/yourusername/brainsy-face" target="_blank">GitHub</a> | 
+      <a href="DESIGN_SPEC.md">Design Spec</a>
+    </p>
+  </footer>
+
+  <script src="snappy.js"></script>
+  <script>
+    // Initialize Brainsy Face
+    const face = new Snappy('brainsy-container', {
+      size: 200,
+      autoStart: true,
+      blinkInterval: 3000
+    });
+
+    // State tracking
+    let blinkCount = 0;
+
+    // Event listeners
+    face.on('blink', () => {
+      blinkCount++;
+      document.getElementById('blink-count').textContent = blinkCount;
+      logEvent('blink', 'Eye blink detected');
+    });
+
+    face.on('stateChange', ({ state, previousState }) => {
+      document.getElementById('current-state').textContent = state;
+      logEvent('stateChange', `Changed from ${previousState} to ${state}`);
+      
+      // Update active button
+      document.querySelectorAll('.state-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.state === state) {
+          btn.classList.add('active');
+        }
+      });
+    });
+
+    face.on('look', ({ direction }) => {
+      logEvent('look', `Looking ${direction}`);
+    });
+
+    // Helper function to change state
+    function changeState(state) {
+      face.setState(state);
+    }
+
+    // Helper function to log events
+    function logEvent(type, message) {
+      const log = document.getElementById('event-log');
+      const timestamp = new Date().toLocaleTimeString();
+      
+      const entry = document.createElement('div');
+      entry.className = 'event-log-entry';
+      entry.innerHTML = `
+        <span class="event-time">${timestamp}</span>
+        <span class="event-name">${type}:</span> ${message}
+      `;
+      
+      log.insertBefore(entry, log.firstChild);
+      
+      // Keep only last 20 entries
+      while (log.children.length > 20) {
+        log.removeChild(log.lastChild);
+      }
+    }
+
+    // Demo sequence (optional)
+    function runDemo() {
+      const states = ['thinking', 'processing', 'happy', 'speaking', 'listening', 'idle'];
+      let index = 0;
+      
+      const interval = setInterval(() => {
+        face.setState(states[index]);
+        index++;
+        
+        if (index >= states.length) {
+          clearInterval(interval);
+        }
+      }, 2000);
+    }
+
+    // Uncomment to auto-run demo on load
+    // setTimeout(runDemo, 1000);
+  </script>
+</body>
+</html>

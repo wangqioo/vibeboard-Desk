@@ -1,0 +1,6 @@
+https://github.com/CindyJS/CindyJS
+Engine build f52f219b1f17269d569b46426b6cee57269e9aae (header of distributed Cindy.js)
+Examples referenced source a7dbbbaaa16c7d8c0aca04181ddf0f8f1744b754
+Cindy.js and CindyGL.js downloaded from https://cindyjs.org/dist/latest/
+Cindy.js sha256 2811def236771b42c260cd7c10f7e50b3cdb0dc8e7c4dbb39563c02752c77c2a
+CindyGL.js sha256 5aa2d573bb22d7784a3938260f44a18c35ec4a68ee881521aa69035872230b92

@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "id": "material-world",
+    "name": "材料世界",
+    "description": "沙水火木真实反应 · 原版 Rust WASM",
+    "entry": "index.html",
+    "layout": "fullscreen",
+    "theme_ui": "controls",
+    "icon": "icon.svg"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>html,body{height:100%;margin:0;overflow:hidden;background:#111820;font-family:sans-serif}canvas{width:100%;height:calc(100% - 60px);display:block;image-rendering:pixelated;touch-action:none}.tools{height:60px;box-sizing:border-box;display:flex;gap:6px;align-items:center;padding:8px;background:var(--card,#202b34);color:var(--ink,#fff)}button,select{height:40px;border:1px solid var(--line,#52616b);border-radius:8px;background:var(--card,#263640);color:inherit;font:15px sans-serif;padding:0 8px}#status{position:absolute;top:10px;left:10px;color:#fff;background:#17232acc;padding:6px;font-size:14px;pointer-events:none}</style><canvas id=\"world\" width=\"160\" height=\"100\"></canvas><div id=\"status\">材料世界 · 拖动放置材料</div><div class=\"tools\"><select id=\"species\" aria-label=\"材料\"><option value=\"2\">沙</option><option value=\"3\">水</option><option value=\"6\">火</option><option value=\"7\">木</option><option value=\"16\">油</option><option value=\"11\">植物</option><option value=\"9\">冰</option><option value=\"8\">熔岩</option><option value=\"12\">酸</option><option value=\"1\">墙</option><option value=\"0\">擦除</option></select><button id=\"brush\">笔刷：小</button><button id=\"pause\">暂停</button><button id=\"undo\">撤销</button><button id=\"clear\">清空</button></div><script type=\"module\" src=\"app.js\" crossorigin=\"anonymous\"></script></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.4\"><path d=\"M9 16h46l-5 37H14Z M9 16l12 11 11-7 12 9 11-13\" /><circle cx=\"24\" cy=\"39\" r=\"2\" /><circle cx=\"39\" cy=\"43\" r=\"2\" /><path d=\"M18 49h26\" /></svg>"
+  }
+}

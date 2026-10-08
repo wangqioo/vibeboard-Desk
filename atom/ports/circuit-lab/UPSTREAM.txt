@@ -1,0 +1,5 @@
+https://github.com/pfalstad/circuitjs1
+Source snapshot ee88a8fa901cc23dd8329245f5c72bce1c40821c
+Compiled official GWT runtime from https://www.falstad.com/circuit/circuitjs110/ (4.1.5js, circuitjs110 deployment directory)
+Bootstrap/query adapted for opaque sandbox; original computation unchanged.
+Current adapted runtime checksums: SHA256SUMS

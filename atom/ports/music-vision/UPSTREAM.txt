@@ -1,0 +1,3 @@
+https://github.com/jberg/butterchurn
+SHA: d90f271be02969d8f16a3ed6b6960c971da6eff9
+butterchurn 2.6.7 npm release; butterchurn-presets 2.4.7 git d19bf03f8930e391a98cc502342ab7658a33af3c

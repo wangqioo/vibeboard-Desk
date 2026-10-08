@@ -1,0 +1,174 @@
+[
+  [
+    {
+      "id": "clock",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "timer",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "notes",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "workshop",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "themes",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "status",
+      "img": false,
+      "loaded": true
+    }
+  ],
+  [
+    {
+      "id": "settings",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "developer",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "manager",
+      "img": false,
+      "loaded": true
+    },
+    {
+      "id": "breathe",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "focus-studio",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "idea-card",
+      "img": true,
+      "loaded": true
+    }
+  ],
+  [
+    {
+      "id": "local-music",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "particle-lab",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "tea-brew-timer",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "template-info",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "template-music",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "template-playful",
+      "img": true,
+      "loaded": true
+    }
+  ],
+  [
+    {
+      "id": "template-tool",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "water-counter-demo",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "cosmic-window",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "alien-creature",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "fluid-atlas",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "planetarium",
+      "img": true,
+      "loaded": true
+    }
+  ],
+  [
+    {
+      "id": "water-pool",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "fluid-paint",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "volume-flow",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "living-pattern",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "moon-ocean",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "physics-playground",
+      "img": true,
+      "loaded": true
+    }
+  ],
+  [
+    {
+      "id": "pocket-studio",
+      "img": true,
+      "loaded": true
+    },
+    {
+      "id": "model-viewer",
+      "img": true,
+      "loaded": true
+    }
+  ]
+]

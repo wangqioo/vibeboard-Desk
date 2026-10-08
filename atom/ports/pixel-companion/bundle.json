@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "id": "pixel-companion",
+    "name": "口袋小猫",
+    "description": "Pixelpets · 抚摸、麻薯拉伸与蝴蝶",
+    "entry": "index.html",
+    "icon": "icon.svg",
+    "theme_ui": "controls",
+    "layout": "fullscreen"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh\"><head><meta charset=\"utf-8\"><title>口袋小猫</title><link rel=\"stylesheet\" href=\"common.css\"><style>#pet{width:480px;height:330px;position:absolute;bottom:0;left:0}#caption{position:absolute;top:25px;left:60px;right:60px;text-align:center;font:13px sans-serif;color:var(--muted)}.heart{position:absolute;color:#d56b79;pointer-events:none;font-size:22px;animation:heart 1.5s ease-out forwards}@keyframes heart{to{transform:translateY(-55px);opacity:0}}</style></head><body><main id=\"stage\"><canvas id=\"pet\"></canvas><div id=\"caption\"></div></main><button id=\"menu\" aria-label=\"打开控制\">···</button><section id=\"panel\" class=\"atomtools\" hidden><header>口袋小猫<button id=\"close\" aria-label=\"关闭控制\">×</button></header><div class=\"row\"><select id=\"coat\" aria-label=\"猫咪花色\"></select></div><div class=\"row\"><button id=\"gift\">送礼物</button><button id=\"butterfly\">蝴蝶</button><button id=\"knead\">踩奶</button></div><div class=\"row\"><button id=\"sound\">声音：关</button></div><p id=\"status\">准备动画…</p><p>控制会自动隐藏 · 空格键返回桌面</p></section><div id=\"hint\">摸摸头 · 拖拽像麻薯 · 滚轮爬绳子</div><div id=\"error\"></div><script src=\"common.js\"></script><script src=\"cat-sprite.js\"></script><script src=\"cat-live.js\"></script><script src=\"main.js\"></script></body></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.4\"><path d=\"M14 29 13 10l15 10h8l15-10-1 19q8 24-18 25Q6 53 14 29Z\" /><path d=\"M21 32h2m18 0h2M29 39l3 3 3-3M10 38l-6-2m50 2 6-2\" /></svg>"
+  }
+}

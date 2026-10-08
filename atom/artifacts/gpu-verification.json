@@ -1,0 +1,41 @@
+{
+  "devices": [
+    {
+      "vendorId": 0,
+      "deviceId": 0,
+      "vendorString": "ARM",
+      "deviceString": "Mali-G52",
+      "driverVendor": "",
+      "driverVersion": "v1.g2p0"
+    }
+  ],
+  "features": {
+    "2d_canvas": "enabled",
+    "gpu_compositing": "enabled",
+    "multiple_raster_threads": "enabled_on",
+    "oop_rasterization": "disabled_off",
+    "opengl": "enabled_on",
+    "rasterization": "disabled_software",
+    "skia_renderer": "enabled_on",
+    "video_decode": "disabled_software",
+    "vulkan": "disabled_off",
+    "webgl": "enabled",
+    "webgl2": "enabled"
+  },
+  "render": {
+    "renderer": "Mali-G52",
+    "frames": 1858,
+    "fps": 62,
+    "contextLost": false,
+    "pixel": [
+      128,
+      128,
+      33,
+      255
+    ],
+    "glError": 0,
+    "webgl2": true,
+    "halfFloat": false,
+    "halfFloatLinear": false
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "results": [
+    {
+      "id": "robo-face",
+      "data": {
+        "engine": "FluxGarage RoboEyes / WASM",
+        "state": "default",
+        "frames": 44,
+        "animating": true,
+        "error": "",
+        "clickState": "happy",
+        "states": [
+          "default",
+          "happy",
+          "tired",
+          "angry"
+        ],
+        "menuHidden": true,
+        "layout": {
+          "w": 480,
+          "h": 360,
+          "inner": [
+            480,
+            360
+          ]
+        },
+        "home": "home",
+        "errors": []
+      }
+    },
+    {
+      "id": "kaia-face",
+      "data": {
+        "engine": "Kaia Face / Fabric 1.7.22",
+        "state": "happy",
+        "frames": 150,
+        "animating": true,
+        "error": "",
+        "clickState": "in-love",
+        "states": [
+          {
+            "requested": "annoyed",
+            "actual": "annoyed"
+          },
+          {
+            "requested": "anxious",
+            "actual": "anxious"
+          },
+          {
+            "requested": "apologetic",
+            "actual": "apologetic"
+          },
+          {
+            "requested": "awkward",
+            "actual": "awkward"
+          },
+          {
+            "requested": "blinking",
+            "actual": "blinking"
+          },
+          {
+            "requested": "bored",
+            "actual": "bored"
+          },
+          {
+            "requested": "crying",
+            "actual": "crying"
+          },
+          {
+            "requested": "default",
+            "actual": "default"
+          },
+          {
+            "requested": "determined",
+            "actual": "determined"
+          },
+          {
+            "requested": "embarrased",
+            "actual": "embarrased"
+          },
+          {
+            "requested": "evil",
+            "actual": "evil"
+          },
+          {
+            "requested": "excited",
+            "actual": "excited"
+          },
+          {
+            "requested": "exhausted",
+            "actual": "exhausted"
+          },
+          {
+            "requested": "flustered",
+            "actual": "flustered"
+          },
+          {
+            "requested": "furious",
+            "actual": "furious"
+          },
+          {
+            "requested": "giggle",
+            "actual": "giggle"
+          },
+          {
+            "requested": "happy",
+            "actual": "happy"
+          },
+          {
+            "requested": "in-love",
+            "actual": "in-love"
+          },
+          {
+            "requested": "mischievous",
+            "actual": "mischievous"
+          },
+          {
+            "requested": "realized-something",
+            "actual": "realized-something"
+          },
+          {
+            "requested": "sad",
+            "actual": "sad"
+          },
+          {
+            "requested": "sassy",
+            "actual": "sassy"
+          },
+          {
+            "requested": "scared",
+            "actual": "scared"
+          },
+          {
+            "requested": "shocked",
+            "actual": "shocked"
+          },
+          {
+            "requested": "snoozing",
+            "actual": "snoozing"
+          },
+          {
+            "requested": "starstruck",
+            "actual": "starstruck"
+          },
+          {
+            "requested": "stuck-up",
+            "actual": "stuck-up"
+          },
+          {
+            "requested": "thinking",
+            "actual": "thinking"
+          },
+          {
+            "requested": "tired",
+            "actual": "tired"
+          },
+          {
+            "requested": "upset",
+            "actual": "upset"
+          },
+          {
+            "requested": "winking",
+            "actual": "winking"
+          },
+          {
+            "requested": "wow",
+            "actual": "wow"
+          }
+        ],
+        "gaze": {
+          "x": 0.5,
+          "y": 0.38888888888888884,
+          "_previous": {
+            "x": 0.7291666666666666,
+            "y": 0.38888888888888884
+          }
+        },
+        "menuHidden": true,
+        "layout": {
+          "w": 480,
+          "h": 360,
+          "inner": [
+            480,
+            360
+          ]
+        },
+        "home": "home",
+        "errors": []
+      }
+    },
+    {
+      "id": "pixel-companion",
+      "data": {
+        "engine": "Pixelpets original browser renderer",
+        "state": "IDLE",
+        "frames": 100,
+        "animating": true,
+        "error": "",
+        "clickState": "NUZZLE",
+        "states": [],
+        "coats": 14,
+        "knead": {
+          "drag": {
+            "active": false,
+            "x": 0,
+            "y": 0,
+            "sx": 240,
+            "sy": 140
+          },
+          "zone": null,
+          "gesture": "scratch",
+          "name": "",
+          "footX": 240,
+          "restX": 240,
+          "travelTX": 240,
+          "bfx": 0,
+          "bfy": 0,
+          "present": false,
+          "mode": "wander",
+          "stalkUntil": 0,
+          "state": "TYPE"
+        },
+        "butterfly": true,
+        "drag": {
+          "active": true,
+          "x": 75,
+          "y": -25,
+          "sx": 240,
+          "sy": 245
+        },
+        "recovered": true,
+        "menuHidden": true,
+        "layout": {
+          "w": 480,
+          "h": 360,
+          "inner": [
+            480,
+            360
+          ]
+        },
+        "home": "home",
+        "errors": []
+      }
+    },
+    {
+      "id": "snappy-face",
+      "data": {
+        "engine": "Snappy original + ATOM emotions",
+        "state": "idle",
+        "frames": 123,
+        "animating": true,
+        "error": "",
+        "clickState": "love",
+        "states": [
+          "idle",
+          "happy",
+          "thinking",
+          "listening",
+          "speaking",
+          "sleeping",
+          "processing",
+          "love",
+          "surprised",
+          "sad",
+          "angry",
+          "excited",
+          "confused"
+        ],
+        "menuHidden": true,
+        "layout": {
+          "w": 480,
+          "h": 360,
+          "inner": [
+            480,
+            360
+          ]
+        },
+        "home": "home",
+        "errors": []
+      }
+    }
+  ],
+  "errors": []
+}

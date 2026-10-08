@@ -1,0 +1,67 @@
+<!--
+WebGL Water
+http://madebyevan.com/webgl-water/
+
+Copyright 2011 Evan Wallace
+Released under the MIT license
+-->
+
+<!DOCTYPE html>
+<html><head><script src="webgl2-compat.js"></script>
+  <title>WebGL Water</title>
+  <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+  <script crossorigin="anonymous" src="OES_texture_float_linear-polyfill.js"></script>
+  <script crossorigin="anonymous" src="lightgl.js"></script>
+  <script crossorigin="anonymous" src="cubemap.js"></script>
+  <script crossorigin="anonymous" src="renderer.js"></script>
+  <script crossorigin="anonymous" src="water.js"></script>
+  <script crossorigin="anonymous" src="main.js"></script>
+  <style type="text/css">
+    body { font: 13px/140% Arial, sans-serif; background: black; color: white; overflow: hidden; }
+    a { color: inherit; cursor: pointer; }
+    img { display: none; }
+    ul { padding: 0 0 0 20px; }
+    h1 { font: bold italic 30px/30px Georgia; text-align: center; }
+    h2 { font: bold italic 17px/17px Georgia; padding-top: 10px; }
+    small { display: block; font-size: 11px; line-height: 15px; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #help { position: absolute; top: 0; right: 0; bottom: 0; width: 280px; padding-right: 20px; overflow: auto; }
+    #loading { position: absolute; left: 0; top: 50%; right: 300px; text-align: center; margin-top: -8px; }
+    @media (max-width: 600px) {
+      small { font-size: 8px; line-height: 10px; }
+      #help { width: 100px; font-size: 10px; line-height: 12px; }
+    }
+  </style>
+</head><body>
+  <div id="loading">Loading...</div>
+  <div id="help">
+    <h1>WebGL Water</h1>
+    <p>Made by <a href="http://madebyevan.com/">Evan Wallace</a></p>
+    <p>This demo requires a decent graphics card and up-to-date drivers. If you can't run the demo, you can still <a href="http://youtube.com/watch?v=R0O_9bp3EKQ">see it on YouTube</a>.</p>
+    <h2>Interactions:</h2>
+    <ul>
+      <li>Draw on the water to make ripples</li>
+      <li>Drag the background to rotate the camera</li>
+      <li>Press SPACEBAR to pause and unpause</li>
+      <li>Drag the sphere to move it around</li>
+      <li>Press the L key to set the light direction</li>
+      <li>Press the G key to toggle gravity</li>
+    </ul>
+    <h2>Features:</h2>
+    <ul>
+      <li>Raytraced reflections and refractions</li>
+      <li>Analytic ambient occlusion</li>
+      <li>Heightfield water simulation *</li>
+      <li>Soft shadows</li>
+      <li>Caustics (see <a href="https://medium.com/@evanwallace/rendering-realtime-caustics-in-webgl-2a99a29a0b2c">this</a> for details) **</li>
+    </ul>
+    <p><small>* requires the OES_texture_float extension<br>** requires the OES_standard_derivatives extension</small></p>
+    <p><small>Tile texture from <a href="http://www.flickr.com/photos/zooboing/3682834083/">zooboing</a> on Flickr</small></p>
+  </div>
+  <img crossorigin="anonymous" id="tiles" src="tiles.jpg">
+  <img crossorigin="anonymous" id="xneg" src="xneg.jpg">
+  <img crossorigin="anonymous" id="xpos" src="xpos.jpg">
+  <img crossorigin="anonymous" id="ypos" src="ypos.jpg">
+  <img crossorigin="anonymous" id="zneg" src="zneg.jpg">
+  <img crossorigin="anonymous" id="zpos" src="zpos.jpg">
+<style>html,body{margin:0;height:100%;overflow:hidden}#help{display:none}#loading{right:0}canvas{display:block}.tools{position:fixed;bottom:12px;left:12px;display:flex;gap:8px;z-index:3}button{height:40px;background:#183545dc;color:white;border:1px solid #ffffff55;border-radius:8px;padding:0 14px;font:14px sans-serif}.label{position:fixed;left:14px;top:12px;z-index:3;color:white;font:13px sans-serif;text-shadow:0 1px 4px black;pointer-events:none}</style><div class="label">光影水池 · 拨动水面 / 拖动球体</div><div class="tools"><button onclick="paused=!paused;this.textContent=paused?'继续':'暂停'">暂停</button><button onclick="useSpherePhysics=!useSpherePhysics;this.textContent=useSpherePhysics?'重力：开':'重力：关'">重力：关</button><button onclick="for(var i=0;i<8;i++)water.addDrop(Math.random()*2-1,Math.random()*2-1,.04,.04)">雨滴</button></div></body></html>

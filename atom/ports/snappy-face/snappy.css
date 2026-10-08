@@ -1,0 +1,498 @@
+/**
+ * Brainsy Face - CSS Styles
+ * 90s Nickelodeon-inspired AI Assistant Face
+ * Version: 1.0.0
+ */
+
+:root {
+  /* Colors - Warmer Palette */
+  --snappy-primary: #FF8C42;     /* Warm orange (friendly, energetic) */
+  --snappy-secondary: #FFB84D;   /* Golden yellow (cheerful) */
+  --snappy-bg: #2C2416;          /* Warm dark brown */
+  --snappy-accent: #FFD93D;      /* Bright yellow (highlight) */
+  --snappy-white: #FFF8F0;       /* Warm white */
+  --snappy-gray: #C9B8A0;        /* Warm beige */
+  
+  /* Dimensions */
+  --snappy-size: 200px;
+  --snappy-eye-size: 38px;  /* Bigger eyes - more prominent */
+  --snappy-eye-spacing: 60px;
+  --snappy-antenna-height: 40px;
+  --snappy-antenna-tip: 16px;
+  
+  /* Timing */
+  --snappy-blink-duration: 150ms;
+  --snappy-transition-duration: 300ms;
+  --snappy-blink-interval: 3000ms;
+  
+  /* Animation Easing */
+  --snappy-ease: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --snappy-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+/* Container */
+.snappy-face-container {
+  position: relative;
+  width: var(--snappy-size);
+  height: calc(var(--snappy-size) + var(--snappy-antenna-height));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Antenna - Simplified, bolder */
+.snappy-antenna {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;  /* Thicker for simplicity */
+  height: var(--snappy-antenna-height);
+  background: var(--snappy-primary);
+  border-radius: 3px;
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+.snappy-antenna::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;  /* Bigger, bolder tip */
+  height: 16px;
+  background: var(--snappy-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 15px var(--snappy-primary);
+  animation: antenna-pulse 2s ease-in-out infinite;
+}
+
+@keyframes antenna-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 5px var(--snappy-primary);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px var(--snappy-primary);
+  }
+}
+
+/* Face (Main Circle) - Simplified, more Nick Jr. style */
+.snappy-face {
+  position: relative;
+  width: var(--snappy-size);
+  height: var(--snappy-size);
+  background: var(--snappy-bg);
+  border-radius: 50%;
+  border: 6px solid var(--snappy-primary);  /* Thicker, bolder border */
+  box-shadow: 0 0 30px rgba(255, 140, 66, 0.4);  /* Simpler glow */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+/* Eyes Container */
+.snappy-eyes {
+  position: absolute;
+  top: 38.2%; /* Golden ratio */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: var(--snappy-eye-spacing);
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+/* Individual Eye */
+.snappy-eye {
+  width: var(--snappy-eye-size);
+  height: var(--snappy-eye-size);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Pupil (moves within eye) */
+.snappy-eye::after {
+  content: '';
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  background: var(--snappy-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 15px var(--snappy-primary);
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+/* Eye Highlight (makes pupil look shiny) */
+.snappy-eye::before {
+  content: '';
+  position: absolute;
+  width: 25%;
+  height: 25%;
+  background: var(--snappy-white);
+  border-radius: 50%;
+  opacity: 0.9;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Mouth */
+.snappy-mouth {
+  position: absolute;
+  bottom: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 3px;
+  background: var(--snappy-gray);
+  border-radius: 2px;
+  transition: all var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+/* Cheeks (optional, shown in happy state) */
+.snappy-cheeks {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity var(--snappy-transition-duration) var(--snappy-ease);
+}
+
+.snappy-cheek {
+  width: 20px;
+  height: 20px;
+  background: var(--snappy-secondary);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+/* ===================================
+   EYE LOOK DIRECTIONS (Pupil Movement)
+   =================================== */
+.snappy-eye.look-left::after {
+  transform: translateX(-30%);
+}
+
+.snappy-eye.look-right::after {
+  transform: translateX(30%);
+}
+
+.snappy-eye.look-up::after {
+  transform: translateY(-40%);
+}
+
+.snappy-eye.look-down::after {
+  transform: translateY(40%);
+}
+
+.snappy-eye.look-up-left::after {
+  transform: translate(-30%, -40%);
+}
+
+.snappy-eye.look-up-right::after {
+  transform: translate(30%, -40%);
+}
+
+.snappy-eye.look-down-left::after {
+  transform: translate(-30%, 40%);
+}
+
+.snappy-eye.look-down-right::after {
+  transform: translate(30%, 40%);
+}
+
+/* Highlight follows pupil */
+.snappy-eye.look-left::before {
+  transform: translateX(-20%);
+}
+
+.snappy-eye.look-right::before {
+  transform: translateX(-20%);
+}
+
+.snappy-eye.look-up::before {
+  transform: translateY(-30%);
+}
+
+.snappy-eye.look-down::before {
+  transform: translateY(-30%);
+}
+
+/* ===================================
+   STATE: IDLE (Default)
+   =================================== */
+.snappy-face.state-idle .snappy-mouth {
+  border-radius: 0 0 40px 40px;
+  height: 20px;
+  background: transparent;
+  border: 2px solid var(--snappy-gray);
+  border-top: none;
+}
+
+/* ===================================
+   STATE: THINKING
+   =================================== */
+.snappy-face.state-thinking .snappy-eyes {
+  transform: translate(-45%, -60%); /* Look up-right */
+}
+
+.snappy-face.state-thinking .snappy-antenna::before {
+  animation: antenna-thinking 0.5s ease-in-out infinite;
+}
+
+@keyframes antenna-thinking {
+  0%, 100% {
+    background: var(--snappy-primary);
+    box-shadow: 0 0 10px var(--snappy-primary);
+  }
+  50% {
+    background: var(--snappy-accent);
+    box-shadow: 0 0 30px var(--snappy-accent);
+  }
+}
+
+.snappy-face.state-thinking .snappy-mouth {
+  width: 60px;
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+/* ===================================
+   STATE: SPEAKING
+   =================================== */
+.snappy-face.state-speaking .snappy-mouth {
+  width: 60px;
+  height: 30px;
+  background: transparent;
+  border: 2px solid var(--snappy-primary);
+  border-radius: 50%;
+  animation: mouth-speak 0.3s ease-in-out infinite;
+}
+
+@keyframes mouth-speak {
+  0%, 100% {
+    height: 10px;
+    opacity: 0.8;
+  }
+  50% {
+    height: 30px;
+    opacity: 1;
+  }
+}
+
+/* ===================================
+   STATE: HAPPY
+   =================================== */
+.snappy-face.state-happy .snappy-eye {
+  width: calc(var(--snappy-eye-size) * 1.25);
+  height: calc(var(--snappy-eye-size) * 1.25);
+}
+
+.snappy-face.state-happy .snappy-mouth {
+  width: 90px;
+  height: 30px;
+  background: transparent;
+  border: 3px solid var(--snappy-primary);
+  border-top: none;
+  border-radius: 0 0 60px 60px;
+}
+
+.snappy-face.state-happy .snappy-cheeks {
+  opacity: 1;
+}
+
+.snappy-face.state-happy {
+  animation: happy-bounce 0.5s var(--snappy-bounce);
+}
+
+@keyframes happy-bounce {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(1.05) translateY(-5px);
+  }
+}
+
+/* ===================================
+   STATE: PROCESSING
+   =================================== */
+.snappy-face.state-processing .snappy-eyes {
+  opacity: 0;
+}
+
+.snappy-face.state-processing::before {
+  content: '';
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  border: 4px solid transparent;
+  border-top-color: var(--snappy-primary);
+  border-right-color: var(--snappy-primary);
+  border-radius: 50%;
+  animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.snappy-face.state-processing .snappy-mouth {
+  width: 60px;
+  height: 2px;
+}
+
+/* ===================================
+   STATE: LISTENING
+   =================================== */
+.snappy-face.state-listening .snappy-eye {
+  width: calc(var(--snappy-eye-size) * 1.1);
+  height: calc(var(--snappy-eye-size) * 1.1);
+}
+
+.snappy-face.state-listening .snappy-mouth {
+  width: 40px;
+  height: 15px;
+  background: transparent;
+  border: 2px solid var(--snappy-gray);
+  border-top: none;
+  border-radius: 0 0 20px 20px;
+}
+
+.snappy-face.state-listening .snappy-antenna::before {
+  animation: antenna-pulse 1.5s ease-in-out infinite;
+}
+
+/* ===================================
+   STATE: SLEEPING
+   =================================== */
+.snappy-face.state-sleeping .snappy-eye {
+  height: 4px;
+  transform: scaleY(0.1);
+}
+
+.snappy-face.state-sleeping .snappy-eye::after {
+  opacity: 0;
+}
+
+.snappy-face.state-sleeping .snappy-mouth {
+  width: 30px;
+  height: 2px;
+  background: var(--snappy-gray);
+}
+
+.snappy-face.state-sleeping .snappy-antenna::before {
+  animation: antenna-sleep 3s ease-in-out infinite;
+}
+
+.snappy-face.state-sleeping {
+  animation: gentle-breathe 4s ease-in-out infinite;
+}
+
+@keyframes antenna-sleep {
+  0%, 100% {
+    opacity: 0.2;
+    box-shadow: 0 0 2px var(--snappy-primary);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 5px var(--snappy-primary);
+  }
+}
+
+@keyframes gentle-breathe {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(0.98) translateY(2px);
+  }
+}
+
+/* ===================================
+   ANIMATION: BLINK
+   =================================== */
+.snappy-eye.blinking {
+  animation: eye-blink var(--snappy-blink-duration) ease-in-out;
+}
+
+/* Hide pupil when blinking */
+.snappy-eye.blinking::after {
+  animation: pupil-blink var(--snappy-blink-duration) ease-in-out;
+}
+
+@keyframes eye-blink {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes pupil-blink {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scaleY(0.1);
+  }
+}
+
+/* ===================================
+   REDUCED MOTION SUPPORT
+   =================================== */
+@media (prefers-reduced-motion: reduce) {
+  .snappy-face *,
+  .snappy-face::before,
+  .snappy-face::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===================================
+   RESPONSIVE SIZING
+   =================================== */
+@media (max-width: 768px) {
+  :root {
+    --snappy-size: 150px;
+    --snappy-eye-size: 22px;
+    --snappy-antenna-height: 30px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --snappy-size: 120px;
+    --snappy-eye-size: 18px;
+    --snappy-antenna-height: 25px;
+  }
+}

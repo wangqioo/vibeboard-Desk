@@ -1,0 +1,170 @@
+import importlib.util
+import json
+import tempfile
+import threading
+import unittest
+from unittest import mock
+import urllib.error
+import urllib.request
+from pathlib import Path
+from http.server import ThreadingHTTPServer
+
+spec = importlib.util.spec_from_file_location('atom_server', str(Path(__file__).resolve().parents[1] / 'server.py'))
+server = importlib.util.module_from_spec(spec); spec.loader.exec_module(server)
+
+class APITests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name).resolve() / 'apps'
+        self.http = ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
+        self.http.apps_root = self.root
+        self.http.settings_path = Path(self.temp.name).resolve() / 'state' / 'settings.json'
+        server.save_settings(self.http.settings_path, True)
+        self.thread = threading.Thread(target=self.http.serve_forever, daemon=True); self.thread.start()
+        self.url = 'http://127.0.0.1:' + str(self.http.server_port)
+
+    def tearDown(self):
+        self.http.shutdown(); self.http.server_close(); self.temp.cleanup()
+
+    def request(self, path, data=None, origin=True):
+        headers = {'Content-Type': 'application/json'}
+        if origin: headers['Origin'] = self.url
+        req = urllib.request.Request(self.url + path, data=json.dumps(data).encode() if data is not None else None, headers=headers)
+        try: response = urllib.request.urlopen(req)
+        except urllib.error.HTTPError as exc: response = exc
+        return response.status, response.read()
+
+    def package(self):
+        return {'manifest': {'id': 'demo', 'name': 'Demo', 'entry': 'index.html'}, 'files': {'index.html': '<h1>Hello</h1>', 'nested/main.js': 'hello'}}
+
+    def test_system_shell_is_not_cached(self):
+        for path in ('/', '/app.js', '/home-key.js', '/style.css', '/app-runtime.js', '/app-host.js', '/companion.js'):
+            with urllib.request.urlopen(self.url + path) as response:
+                self.assertEqual(response.headers.get('Cache-Control'), 'no-store')
+
+    def test_public_app_asset_cors_only(self):
+        server.install_app(self.root, self.package())
+        with urllib.request.urlopen(self.url + '/user-apps/demo/nested/main.js') as response:
+            self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), '*'); self.assertEqual(response.headers.get('Cache-Control'), 'no-cache')
+        with urllib.request.urlopen(self.url + '/api/model-config') as response:
+            self.assertIsNone(response.headers.get('Access-Control-Allow-Origin'))
+
+    def test_install_serve_list_uninstall(self):
+        self.assertEqual(self.request('/api/apps/install', self.package())[0], 201)
+        self.assertIn(b'<h1>Hello</h1>', self.request('/user-apps/demo/index.html')[1])
+        body = json.loads(self.request('/api/apps')[1])
+        self.assertEqual(body['apps'][-1]['entry'], '/user-apps/demo/index.html')
+        self.assertEqual(self.request('/api/apps/install', self.package())[0], 400)
+        self.assertEqual(self.request('/api/apps/uninstall', {'id':'demo'})[0], 200)
+        self.assertEqual(self.request('/user-apps/demo/index.html')[0], 404)
+
+    def test_runtime_is_injected_before_app_code(self):
+        bundle = self.package()
+        bundle['files']['index.html'] = '<html><head><script>window.sdkSeen=typeof AtomApp;</script></head><body>Hello</body></html>'
+        server.install_app(self.root, bundle)
+        html = self.request('/user-apps/demo/index.html')[1].decode()
+        self.assertLess(html.index('/app-runtime.js'), html.index('window.sdkSeen'))
+        self.assertEqual(html.count('src="/app-runtime.js"'), 1)
+        self.assertIn('/home-key.js', html)
+
+    def test_developer_persistence_and_body_validation(self):
+        self.assertEqual(self.request('/api/developer', {'enabled': False})[0], 200)
+        self.assertFalse(json.loads(self.request('/api/developer')[1])['enabled'])
+        self.assertEqual(self.request('/api/apps/install', self.package())[0], 403)
+        self.assertFalse(server.read_settings(self.http.settings_path)['enabled'])
+        for value in [None, 1, 'true', [], {}]:
+            self.assertEqual(self.request('/api/developer', {'enabled':value})[0], 400)
+        self.assertFalse(server.read_settings(self.http.settings_path)['enabled'])
+        self.assertEqual(self.request('/api/developer', {'enabled':True})[0], 200)
+        self.assertTrue(server.read_settings(self.http.settings_path)['enabled'])
+        settings = self.http.settings_path
+        self.http.shutdown(); self.http.server_close()
+        self.http = ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
+        self.http.apps_root = self.root; self.http.settings_path = settings
+        self.thread = threading.Thread(target=self.http.serve_forever, daemon=True); self.thread.start()
+        self.url = 'http://127.0.0.1:' + str(self.http.server_port)
+        self.assertTrue(json.loads(self.request('/api/developer')[1])['enabled'])
+        self.assertFalse(server.read_settings(self.http.settings_path.parent / 'missing.json')['enabled'])
+
+    def test_display_validation_and_device_write(self):
+        fake = Path(self.temp.name).resolve() / 'backlight'
+        device = fake / 'panel'; device.mkdir(parents=True)
+        (device / 'brightness').write_text('40'); (device / 'max_brightness').write_text('200')
+        with mock.patch.object(server, 'BACKLIGHT_ROOT', fake):
+            self.assertEqual(json.loads(self.request('/api/display')[1])['brightness'], 20)
+            self.assertEqual(self.request('/api/display/brightness', {'brightness':50})[0], 200)
+            self.assertEqual((device / 'brightness').read_text(), '100')
+            for value in [True, -1, 101, '50', None]:
+                self.assertEqual(self.request('/api/display/brightness', {'brightness':value})[0], 400)
+        with mock.patch.object(server, 'BACKLIGHT_ROOT', fake / 'missing'):
+            self.assertFalse(json.loads(self.request('/api/display')[1])['available'])
+            self.assertEqual(self.request('/api/display/brightness', {'brightness':50})[0], 503)
+
+    def test_update_and_failed_swap_restores_previous(self):
+        self.assertEqual(self.request('/api/apps/install', self.package())[0], 201)
+        package = self.package(); package['files']['index.html'] = 'updated'
+        self.assertEqual(self.request('/api/apps/update', package)[0], 201)
+        self.assertIn(b'updated', self.request('/user-apps/demo/index.html')[1])
+        real_rename = server.os.rename
+        def fail_stage(source, target):
+            if Path(source).name.startswith('.install-'):
+                raise OSError('simulated disk failure')
+            return real_rename(source, target)
+        with mock.patch.object(server.os, 'rename', side_effect=fail_stage):
+            self.assertEqual(self.request('/api/apps/update', self.package())[0], 503)
+        self.assertIn(b'updated', self.request('/user-apps/demo/index.html')[1])
+        self.assertFalse(any(p.name.startswith('.install-') for p in self.root.iterdir()))
+
+    def test_requires_origin_and_input_validation(self):
+        self.assertEqual(self.request('/api/apps/install', self.package(), False)[0], 403)
+        for value in [-1, 101, True, '50', 3.5]:
+            self.assertEqual(self.request('/api/audio/volume', {'volume':value})[0], 400)
+        self.assertEqual(self.request('/api/apps/uninstall', {'id':'clock'})[0], 400)
+
+    def test_no_traversal_or_symlinks(self):
+        for name in ['../escape', '/tmp/escape', 'a/../../escape', 'a\\escape', 'manifest.json']:
+            package = self.package(); package['files'][name] = 'bad'
+            self.assertEqual(self.request('/api/apps/install', package)[0], 400)
+        self.root.mkdir()
+        (self.root / 'demo').symlink_to(self.temp.name)
+        self.assertEqual(self.request('/api/apps/install', self.package())[0], 400)
+        self.assertEqual(self.request('/user-apps/demo/something')[0], 404)
+        self.assertEqual(self.request('/user-apps/../server.py')[0], 404)
+        self.assertEqual(self.request('/api/apps/uninstall', {'id':'demo'})[0], 400)
+
+    def test_health_status_and_manifest_validation(self):
+        self.assertTrue(json.loads(self.request('/api/health')[1])['ok'])
+        status = json.loads(self.request('/api/status')[1])
+        self.assertIn('available', status['memory']); self.assertIn('connected', status['network'])
+        for patch in [{'id':'../x'}, {'name':None}, {'entry':'main.py'}]:
+            package = self.package(); package['manifest'].update(patch)
+            self.assertEqual(self.request('/api/apps/install', package)[0], 400)
+
+    def test_workshop_and_theme_http_integration(self):
+        import time
+        self.assertEqual(self.request('/api/workshop/generate', {'prompt':'make a timer','theme_id':'paper'})[0], 400)
+        self.assertEqual(self.request('/api/workshop/jobs/unknown')[0], 400)
+        self.assertEqual(self.request('/api/model-config', {'provider':'custom','base_url':'https://example.com/v1','model':'test','api_key':'test-only-secret'})[0], 200)
+        public = self.request('/api/model-config')[1]
+        self.assertNotIn(b'test-only-secret', public)
+        self.assertTrue(json.loads(public)['api_key_set'])
+        self.assertEqual(self.request('/api/themes/activate', {'id':'terminal'})[0], 200)
+        service = server.features(self.http)
+        with mock.patch.object(service.workshop, '_call_model', return_value=json.dumps(self.package())):
+            code, body = self.request('/api/workshop/generate', {'prompt':'make demo','theme_id':'terminal'})
+            self.assertEqual(code, 200)
+            job_id = json.loads(body)['job_id']
+            for _ in range(100):
+                job = json.loads(self.request('/api/workshop/jobs/'+job_id)[1])
+                if job['status'] in ('ready','failed'): break
+                time.sleep(.01)
+            self.assertEqual(job['status'], 'ready')
+        self.request('/api/developer', {'enabled':False})
+        self.assertEqual(self.request('/api/workshop/install', {'job_id':job_id})[0], 200)
+        self.request('/api/themes/activate', {'id':'blueprint'})
+        html = self.request('/user-apps/demo/index.html')[1]
+        self.assertIn(b'#101913', html)
+        self.assertIn(b'data-atom-theme', html)
+        self.assertEqual(self.request('/api/voice/transcribe', {'recording_id':'../../bad'})[0], 400)
+
+if __name__ == '__main__': unittest.main()

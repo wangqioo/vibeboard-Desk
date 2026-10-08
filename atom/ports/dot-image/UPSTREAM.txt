@@ -1,0 +1,3 @@
+https://github.com/mblode/fx
+SHA 894b85b9bcfa946b868954130fcccda05cd379d7
+MIT License. ATOM adapted UI, sampled LED input and local image handling; upstream dithering, ASCII and LED rendering algorithms retained.

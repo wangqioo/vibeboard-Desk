@@ -1,0 +1,27 @@
+{
+  "theme": "sunshine",
+  "last4": [
+    "robo-face",
+    "kaia-face",
+    "pixel-companion",
+    "snappy-face"
+  ],
+  "themes": [
+    {
+      "theme": "paper",
+      "count": 6,
+      "glyphs": 6,
+      "color": "rgb(36, 38, 34)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "radius": "4px"
+    },
+    {
+      "theme": "terminal",
+      "count": 6,
+      "glyphs": 6,
+      "color": "rgb(89, 202, 131)",
+      "bg": "rgb(22, 37, 27)",
+      "radius": "0px"
+    }
+  ]
+}

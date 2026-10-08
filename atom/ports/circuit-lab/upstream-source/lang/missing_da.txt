@@ -1,0 +1,4 @@
+"Clocked SR Flip-Flop"
+"Paste"
+"Paste the text file for your circuit here..."
+"fc = "

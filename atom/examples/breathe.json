@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "id": "breathe",
+    "name": "呼吸一下",
+    "description": "独立运行的缓慢呼吸动画",
+    "entry": "index.html",
+    "icon": "icon.svg"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{margin:0;background:#14232b;color:#fff;font:20px sans-serif;text-align:center;padding:16px;box-sizing:border-box}h1{font-size:26px;margin:8px}button{font:20px sans-serif;border:0;border-radius:16px;padding:14px 24px;background:#9de7ce;color:#123;margin:12px;min-height:52px}p{line-height:1.5}</style><h1>呼吸一下</h1><div id=\"ball\" style=\"width:100px;height:100px;border-radius:50%;background:#9de7ce;margin:32px auto;transition:transform 4s ease-in-out\"></div><p id=\"hint\">准备开始</p><button id=\"toggle\">开始</button><script>var timer=null,inhale=false;var ball=document.getElementById('ball'),hint=document.getElementById('hint'),button=document.getElementById('toggle');function step(){inhale=!inhale;ball.style.transform=inhale?'scale(1.35)':'scale(.8)';hint.textContent=inhale?'缓缓吸气':'缓缓呼气'}button.onclick=function(){if(timer){clearInterval(timer);timer=null;hint.textContent='已暂停';button.textContent='继续'}else{step();timer=setInterval(step,4000);button.textContent='暂停'}};</script></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><title>呼吸一下</title><g transform=\"translate(5 5) scale(.84)\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 38c-9-14 9-24 12-9 3-15 21-5 12 9-7 12-17 12-24 0Z\" /></g></svg>"
+  }
+}

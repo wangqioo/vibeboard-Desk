@@ -1,0 +1,18 @@
+{
+  "ids": [
+    "epg",
+    "euclidfx",
+    "output",
+    "pitches",
+    "soundbank"
+  ],
+  "files": [
+    "config.json",
+    "settings.html",
+    "object3d.js",
+    "object3dController.js",
+    "processor.js",
+    "settingsController.js",
+    "utils.js"
+  ]
+}

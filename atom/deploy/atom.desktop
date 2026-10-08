@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=ATOM
+Comment=ATOM independent desktop application terminal
+Exec=/home/linaro/atom/deploy/atom-session.sh
+Type=Application

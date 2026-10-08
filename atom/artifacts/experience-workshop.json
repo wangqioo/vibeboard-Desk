@@ -1,0 +1,20 @@
+{
+  "jobId": "bd23ba60abcc43109b1f89d1e5dce005",
+  "id": "practice-seven",
+  "status": "ready",
+  "icon": "icon.svg",
+  "lastApp": "practice-seven",
+  "savedState": {
+    "n": 1
+  },
+  "reloadDraft": true,
+  "backgroundResume": "Verified by successful UI flow after reload",
+  "previewValue": 1,
+  "initialInstalled": 0,
+  "reopenedValue": 1,
+  "screenshots": [
+    "experience-generating.png",
+    "experience-installed.png",
+    "practice-seven.png"
+  ]
+}

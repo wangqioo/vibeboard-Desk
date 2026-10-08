@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head><script>var NativeImage=Image;window.Image=function(w,h){var i=new NativeImage(w,h);i.crossOrigin="anonymous";return i};Image.prototype=NativeImage.prototype;</script><script>window.atomReplaceState=function(){try{history.replaceState.apply(history,arguments)}catch(e){}}</script>
+    <meta charset="utf-8">
+    <meta name="description" content="Reaction-diffusion on GPU in WebGL" />
+    <title>Reaction-diffusion</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/png" href="favicon-16x16.png" sizes="16x16">
+    <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96">
+    <link rel="stylesheet" type="text/css" href="css/page.css?v=2023-06-11T15%3A10%3A57.382Z">
+    <link rel="stylesheet" type="text/css" href="css/main.css?v=2023-06-11T15%3A10%3A57.382Z">
+  </head>
+
+  <body>
+    <header>
+      <a class="logo logo-animate-fill" href="https://piellardj.github.io" id="back-to-home-button" title="Home" aria-label="Home">
+        <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <g stroke-width="2">
+            <path fill="none" stroke-linejoin="round" d="M17.5,32h4.5v11h7v-7l1,-1h4l1,1v7h7v-11h4.5L32,16.5z" />
+        </svg>
+      </a>
+    </header>
+    <main>
+      <div class="intro">
+        <h1>Reaction-diffusion</h1>
+
+        <div class="description">
+          <p>Reaction-diffusion is a model used to simulate the chemical reaction between two substances 'A' and 'B'. 'A' turns into 'B' when it is in contact with it. Additionally, a little 'A' is continuously injected, and a fraction of 'B' slowly destroys itself.</p>
+          <p>This is a GPU implementation of the Gray Scott model. It exhibits natural-looking patterns, reminiscent of corals or some animal coats. Use the left mouse button to interact with the simulation.</p>
+
+          <br>
+
+          <div class="project-links">
+            <a href="https://github.com/piellardj/reaction-diffusion-webgl">More on GitHub</a> <a href="https://piellardj.github.io/reaction-diffusion-webgl/readme">Explanations</a>
+          </div>
+        </div>
+      </div>
+      <div id="error-messages">
+        <noscript>
+          You need to enable Javascript to run this experiment.
+        </noscript>
+      </div>
+
+      <input type="checkbox" id="fullscreen-checkbox-id" class="hidden">
+      <div class="demo">
+        <input type="checkbox" id="side-pane-checkbox-id" class="hidden">
+        <div id="canvas-container">
+          <canvas id="canvas"></canvas>
+          <div class="loader">
+            <span></span>
+            <div class="loader-animation"></div>
+          </div>
+          <div id="indicators">
+            <div id="fps-indicator-indicator-id">
+              FPS: <span></span>
+            </div>
+            <div id="iteration-indicator-indicator-id">
+              Iteration: <span></span>
+            </div>
+          </div>
+          <div id="canvas-buttons-column">
+            <label class="canvas-button" id="fullscreen-toggle-id" for="fullscreen-checkbox-id"></label>
+            <label class="canvas-button" id="side-pane-toggle-id" for="side-pane-checkbox-id"></label>
+          </div>
+        </div>
+        <div class="controls-block">
+          <label class="canvas-button" id="side-pane-close-toggle-id" for="side-pane-checkbox-id">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+              <line x1="22" y1="22" x2="10" y2="10" stroke-linecap="round" stroke-width="2" />
+              <line x1="22" y1="10" x2="10" y2="22" stroke-linecap="round" stroke-width="2" />
+            </svg>
+          </label>
+          <section class="controls-section">
+            <h2>Parameters</h2>
+
+            <div class="controls-list">
+              <div class="control" id="control-map-tabs-id">
+                <label>Map:</label>
+                <div class="tabs compact" id="map-tabs-id-id">
+                  <input type="radio" name="map-tabs-id" value="uniform" id="map-tabs-id-uniform-id" checked />
+                  <label for="map-tabs-id-uniform-id">Uniform</label>
+                  <input type="radio" name="map-tabs-id" value="image" id="map-tabs-id-image-id" />
+                  <label for="map-tabs-id-image-id">Image</label>
+                </div>
+              </div>
+              <div class="control" id="control-presets-fixed-select-id">
+                <label>Preset:</label>
+                <div class="select-container compact" id="presets-fixed-select-id">
+                  <div class="select-current-value" data-value="0">Tiny waves</div>
+                  <div class="select-values-list" data-placeholder="Custom">
+                    <div class="select-value" data-value="0">Tiny waves</div>
+                    <div class="select-value" data-value="1">Lines</div>
+                    <div class="select-value" data-value="2">Orthogonal</div>
+                    <div class="select-value" data-value="3">Shimmer</div>
+                    <div class="select-value" data-value="4">Geometric</div>
+                    <div class="select-value" data-value="5">Holes</div>
+                    <div class="select-value" data-value="6">Epilepsy</div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-pattern-scale-range-id">
+                <label>Patterns scale:</label>
+                <div class="range-container">
+                  <input type="range" min="1" max="3" value="1" step="0.05" class="slider" id="pattern-scale-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="pattern-scale-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-input-image-upload-button">
+                <div class="file-control upload ">
+                  <input type="file" name="file" id="input-image-upload-button" class="file-input" accept=".png,.jpg,.bmp,.webp" />
+                  <label class="file-control-button" for="input-image-upload-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                      <path d="M12 22L12 13 7 13 16 2 25 13 20 13 20 22ZM6 25L26 25 26 29 6 29Z" />
+                    </svg>
+                    <span data-placeholder="Upload an image">Upload an image</span>
+                  </label>
+                </div>
+              </div>
+              <div class="control" id="control-A-feeding-range-id">
+                <label>A feeding:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="0.1" value="0.054" step="0.001" class="slider" id="A-feeding-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="A-feeding-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-A-diffusion-range-id">
+                <label>A diffusion:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="0.5" value="0.2097" step="0.001" class="slider" id="A-diffusion-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="A-diffusion-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-B-killing-range-id">
+                <label>B killing:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="0.1" value="0.062" step="0.001" class="slider" id="B-killing-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="B-killing-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-B-diffusion-range-id">
+                <label>B diffusion:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="0.5" value="0.105" step="0.001" class="slider" id="B-diffusion-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="B-diffusion-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-pick-values-button-id">
+                <button class="button  flat" id="pick-values-button-id">Pick values</button>
+              </div>
+            </div>
+          </section>
+          <hr />
+          <section class="controls-section">
+            <h2>Simulation</h2>
+
+            <div class="controls-list">
+              <div class="control" id="control-speed-range-id">
+                <label>Speed:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="100" value="20" step="1" class="slider" id="speed-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="speed-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-brush-size-range-id">
+                <label>Brush size:</label>
+                <div class="range-container">
+                  <input type="range" min="20" max="100" value="30" step="1" class="slider" id="brush-size-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="brush-size-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-brush-display-checkbox-id">
+                <label>Display brush:</label>
+                <div class="checkbox">
+                  <input type="checkbox" id="brush-display-checkbox-id">
+                  <label for="brush-display-checkbox-id" class="checkmark"></label>
+                </div>
+              </div>
+              <div class="control" id="control-initial-state-tabs-id">
+                <label>Initial state:</label>
+                <div class="tabs compact" id="initial-state-tabs-id-id">
+                  <input type="radio" name="initial-state-tabs-id" value="blank" id="initial-state-tabs-id-blank-id" />
+                  <label for="initial-state-tabs-id-blank-id">Blank</label>
+                  <input type="radio" name="initial-state-tabs-id" value="disc" id="initial-state-tabs-id-disc-id" />
+                  <label for="initial-state-tabs-id-disc-id">Disc</label>
+                  <input type="radio" name="initial-state-tabs-id" value="circle" id="initial-state-tabs-id-circle-id" checked />
+                  <label for="initial-state-tabs-id-circle-id">Circles</label>
+                </div>
+              </div>
+              <div class="control" id="control-reset-button-id">
+                <button class="button  flat" id="reset-button-id">Reset</button>
+              </div>
+            </div>
+          </section>
+          <hr />
+          <section class="controls-section">
+            <h2>Display</h2>
+
+            <div class="controls-list">
+              <div class="control" id="control-display-mode-tabs-id">
+                <label>Mode:</label>
+                <div class="tabs compact" id="display-mode-tabs-id-id">
+                  <input type="radio" name="display-mode-tabs-id" value="monochrome" id="display-mode-tabs-id-monochrome-id" checked />
+                  <label for="display-mode-tabs-id-monochrome-id">Monochrome</label>
+                  <input type="radio" name="display-mode-tabs-id" value="tricolor" id="display-mode-tabs-id-tricolor-id" />
+                  <label for="display-mode-tabs-id-tricolor-id">Tricolor</label>
+                </div>
+              </div>
+              <div class="control" id="control-shading-tabs-id">
+                <label>Shading:</label>
+                <div class="tabs compact" id="shading-tabs-id-id">
+                  <input type="radio" name="shading-tabs-id" value="binary" id="shading-tabs-id-binary-id" checked />
+                  <label for="shading-tabs-id-binary-id">Binary</label>
+                  <input type="radio" name="shading-tabs-id" value="greyscale" id="shading-tabs-id-greyscale-id" />
+                  <label for="shading-tabs-id-greyscale-id">Greyscale</label>
+                  <input type="radio" name="shading-tabs-id" value="colorscale" id="shading-tabs-id-colorscale-id" />
+                  <label for="shading-tabs-id-colorscale-id">Colorscale</label>
+                </div>
+              </div>
+              <div class="control" id="control-zoom-range-id">
+                <label>Zoom:</label>
+                <div class="range-container">
+                  <input type="range" min="1" max="5" value="1" step="0.05" class="slider" id="zoom-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="zoom-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-blur-range-id">
+                <label>Blur:</label>
+                <div class="range-container">
+                  <input type="range" min="0" max="10" value="0" step="1" class="slider" id="blur-range-id">
+                  <div class="range-skin-container">
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-left range-stub-left"></span>
+                    </div>
+                    <div class="range-progress">
+                      <div class="range-progress-left">
+                        <span class="range-bar range-bar-left"></span>
+                        <span class="range-handle"></span>
+                        <output for="blur-range-id" class="range-tooltip"></output>
+                      </div>
+                      <div class="range-progress-right">
+                        <span class="range-bar range-bar-right"></span>
+                      </div>
+                    </div>
+                    <div class="range-stub">
+                      <span class="range-bar range-bar-right range-stub-right"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control" id="control-indicators-checkbox-id">
+                <label>Indicators:</label>
+                <div class="checkbox">
+                  <input type="checkbox" id="indicators-checkbox-id">
+                  <label for="indicators-checkbox-id" class="checkmark"></label>
+                </div>
+              </div>
+            </div>
+          </section>
+          <hr />
+          <section class="controls-section">
+            <h2>Output</h2>
+
+            <div class="controls-list">
+              <div class="control" id="control-image-download-id">
+                <div class="file-control download ">
+                  <input type="button" id="image-download-id" class="file-input" />
+                  <label class="file-control-button" for="image-download-id">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                      <path d="M12 4L12 13 7 13 16 24 25 13 20 13 20 4ZM6 25L26 25 26 29 6 29Z" />
+                    </svg>
+                    <span>Download image</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="badge-shelf">
+        <a class="badge" href="mailto:jeremie.piellard@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32px" height="32px" viewBox="0 0 512 512">
+            <path d="M512 85V448H0V85l256 224L512 85zM488 64H24L256 267 488 64z" />
+          </svg>
+        </a>
+
+        <a class="badge" href="https://github.com/piellardj" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32px" height="32px" viewBox="0 0 1024 1024">
+            <path d="M512 0C229 0 0 229 0 512c0 226 147 418 350 486 26 5 35-11 35-25 0-12 0-53-1-95C242 909 212 818 212 818c-23-59-57-75-57-75-47-32 4-31 4-31 51 4 78 53 78 53 46 78 120 56 149 43 5-33 18-56 33-68C305 725 185 682 185 485c0-56 20-102 53-137-5-13-23-65 5-136 0 0 43-14 141 53 41-11 85-17 128-17 44 0 87 6 128 17 98-66 141-52 141-52 28 71 10 123 5 136 33 36 53 81 53 137 0 197-120 240-234 253 18 16 35 47 35 95 0 68-1 124-1 141 0 14 9 30 35 25C877 930 1024 738 1024 512 1024 229 795 0 512 0z" />
+          </svg>
+        </a>
+
+        <a class="badge" href="https://www.linkedin.com/in/jeremie-piellard/" title="LinkedIn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32px" height="32px" viewBox="0 0 512 512">
+            <path d="M30 177l93-1v304l-93 1v-304z" />
+            <path d="M200 177l89-1v39l0 11c26-26 53-45 97-45 51 0 100 21 100 91v208l-90 1v-159c0-35-9-58-51-58-37 0-52 7-52 55v160l-92 1v-304z" />
+            <path d="M128 81c0 28-23 51-51 51s-51-23-51-51c0-28 23-51 51-51 28 0 51 23 51 51z" />
+          </svg>
+        </a>
+      </div>
+    </footer>
+    <script type="text/javascript">
+      var Page = Page || {};
+      Object.defineProperty(Page, "version", {
+        value: "2023-06-11T15%3A10%3A57.382Z",
+        writable: false,
+      });
+    </script>
+    <script crossorigin="anonymous" src="script/page.min.js?v=2023-06-11T15%3A10%3A57.382Z"></script>
+    <script crossorigin="anonymous" src="script/main.min.js?v=2023-06-11T15%3A10%3A57.382Z"></script>
+  <style>html,body{margin:0;height:100%;overflow:hidden;font:14px sans-serif}canvas{display:block}.atomtools{position:fixed;bottom:10px;left:12px;right:12px;display:flex;gap:6px;z-index:100}.atomtools button{height:40px;flex:1;border:1px solid #ffffff66;background:#14202de8;color:white;border-radius:8px;font:13px sans-serif}.atomtitle{position:fixed;left:14px;top:12px;z-index:100;font:13px sans-serif;color:white;pointer-events:none;text-shadow:0 1px 4px #000}header,footer,.intro,.controls-block,#canvas-buttons-column,#indicators{display:none!important}main,.demo,#canvas-container{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important;max-width:none!important}#canvas{width:100%!important;height:100%!important}.atomtitle{color:#eee}</style><div class="atomtitle">生命纹理 · 拖动播种</div><div class="atomtools"><button id="atomPreset">纹理：波纹</button><button id="atomPause">暂停</button><button id="atomReset">重新生长</button></div><script>window.addEventListener('load',function(){var preset=0,speed=20;Page.Range.setValue('speed-range-id',20);document.getElementById('atomPreset').onclick=function(){preset=(preset+1)%6;var e=document.querySelector('#presets-fixed-select-id [data-value="'+preset+'"].select-value');e.click();Page.Range.setValue('speed-range-id',20);speed=20;document.getElementById('atomPause').textContent='暂停';document.getElementById('reset-button-id').click();this.textContent='纹理：'+['波纹','线条','交错','微光','几何','孔洞'][preset]};document.getElementById('atomPause').onclick=function(){speed=speed?0:20;Page.Range.setValue('speed-range-id',speed);this.textContent=speed?'暂停':'继续'};document.getElementById('atomReset').onclick=function(){document.getElementById('reset-button-id').click()};});</script></body>
+
+</html>

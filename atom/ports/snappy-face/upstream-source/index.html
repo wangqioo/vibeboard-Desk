@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snappy - Expressive AI Face</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 800px;
+    }
+
+    h1 {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .tagline {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+
+    .description {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 3rem;
+      opacity: 0.8;
+    }
+
+    .description code {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .demos {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+
+    .demo-card {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      padding: 2rem;
+      border-radius: 20px;
+      min-width: 250px;
+      transition: transform 0.3s, background 0.3s;
+      text-decoration: none;
+      color: white;
+    }
+
+    .demo-card:hover {
+      transform: translateY(-5px);
+      background: rgba(255,255,255,0.2);
+    }
+
+    .demo-card h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .demo-card p {
+      opacity: 0.8;
+      margin-bottom: 1rem;
+    }
+
+    .demo-card .btn {
+      display: inline-block;
+      background: white;
+      color: #667eea;
+      padding: 10px 30px;
+      border-radius: 25px;
+      font-weight: bold;
+      text-decoration: none;
+      transition: transform 0.2s;
+    }
+
+    .demo-card .btn:hover {
+      transform: scale(1.05);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 3rem;
+      text-align: left;
+    }
+
+    .feature {
+      background: rgba(255,255,255,0.05);
+      padding: 1.5rem;
+      border-radius: 10px;
+    }
+
+    .feature h4 {
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .feature p {
+      opacity: 0.7;
+      font-size: 0.9rem;
+    }
+
+    .github-link {
+      display: inline-block;
+      background: rgba(0,0,0,0.3);
+      padding: 12px 30px;
+      border-radius: 25px;
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .github-link:hover {
+      background: rgba(0,0,0,0.5);
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2.5rem; }
+      .tagline { font-size: 1.2rem; }
+      .demos { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎭 Snappy</h1>
+    <p class="tagline">Visual Companion for AI Interactions</p>
+    <p class="description">
+      An expressive, animated face that provides real-time visual feedback for your AI assistant. 
+      Use alongside <code>clawdbot tui</code> or embed in your own projects. Pure vanilla JavaScript, zero dependencies.
+    </p>
+
+    <div class="demos">
+      <div class="demo-card">
+        <h3>🖥️ TUI Companion</h3>
+        <p>Visual feedback for clawdbot tui</p>
+        <a href="companion.html" class="btn">Try It Live</a>
+      </div>
+      
+      <div class="demo-card">
+        <h3>🌟 Fullscreen Demo</h3>
+        <p>Interactive AI chat interface</p>
+        <a href="face.html" class="btn">Try It Live</a>
+      </div>
+      
+      <div class="demo-card">
+        <h3>🧩 Component Demo</h3>
+        <p>Embedded examples</p>
+        <a href="component-demo.html" class="btn">View Demo</a>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h4>🎭 13 Emotions</h4>
+        <p>Happy, sad, angry, excited, thinking, and more</p>
+      </div>
+      <div class="feature">
+        <h4>👁️ Eye Tracking</h4>
+        <p>Eyes follow mouse cursor naturally</p>
+      </div>
+      <div class="feature">
+        <h4>🤖 AI Ready</h4>
+        <p>Clawdbot integration built-in</p>
+      </div>
+      <div class="feature">
+        <h4>⚡ Zero Deps</h4>
+        <p>Pure vanilla JavaScript</p>
+      </div>
+    </div>
+
+    <a href="https://github.com/BrainsyETH/expressive-face" class="github-link">
+      ⭐ View on GitHub
+    </a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brainsy - Simple Chat</title>
+  <link rel="stylesheet" href="snappy.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #FF8C42;  /* Solid orange - Nick Jr. style! */
+      color: #2C2416;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Main Layout */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 100%;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Face Area - HUGE like Nick Jr. */
+    .face-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 20px;
+    }
+
+    #brainsy-container {
+      transform: scale(3.0);  /* HUGE! Fills the screen */
+      transition: transform 0.5s ease;
+    }
+
+    #brainsy-container.sleeping {
+      transform: scale(2.8);
+      opacity: 0.5;
+    }
+
+    /* Even bigger in fullscreen */
+    body.fullscreen #brainsy-container {
+      transform: scale(4.0);
+    }
+
+    body.fullscreen #brainsy-container.sleeping {
+      transform: scale(3.8);
+    }
+
+    /* Hide antenna for ultra-simple look */
+    .brainsy-antenna {
+      display: none !important;
+    }
+
+    /* Status Text - Minimal */
+    .status-text {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.2rem;
+      color: #2C2416;
+      font-weight: bold;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(255, 255, 255, 0.3);
+    }
+
+    /* Input Area - Bottom bar only */
+    .input-area {
+      padding: 20px;
+      background: rgba(44, 36, 22, 0.9);
+      border-top: 4px solid #2C2416;
+    }
+
+    .input-container {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    #user-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.9);
+      border: 3px solid #2C2416;
+      border-radius: 30px;
+      padding: 16px 24px;
+      color: #2C2416;
+      font-size: 1.1rem;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      resize: none;
+      max-height: 80px;
+    }
+
+    #user-input:focus {
+      outline: none;
+      background: white;
+      box-shadow: 0 0 0 4px rgba(44, 36, 22, 0.2);
+    }
+
+    #user-input::placeholder {
+      color: rgba(44, 36, 22, 0.4);
+    }
+
+    /* Buttons */
+    .btn {
+      background: #2C2416;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 30px;
+      color: white;
+      font-weight: 900;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn:hover {
+      background: #1a140e;
+      transform: scale(1.05);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Scrolling Text - Nick Jr. style! */
+    .scrolling-text {
+      position: absolute;
+      bottom: 120px;
+      left: 0;
+      width: 100%;
+      height: 80px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .scroll-content {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: scroll-left 15s linear;
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: #2C2416;
+      text-shadow: 
+        3px 3px 0 rgba(255, 255, 255, 0.8),
+        -1px -1px 0 rgba(255, 255, 255, 0.8),
+        1px -1px 0 rgba(255, 255, 255, 0.8),
+        -1px 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    /* Bigger text in fullscreen */
+    body.fullscreen .scrolling-text {
+      bottom: 80px;
+      height: 120px;
+    }
+
+    body.fullscreen .scroll-content {
+      font-size: 4rem;
+      text-shadow: 
+        5px 5px 0 rgba(255, 255, 255, 0.9),
+        -2px -2px 0 rgba(255, 255, 255, 0.9),
+        2px -2px 0 rgba(255, 255, 255, 0.9),
+        -2px 2px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    @keyframes scroll-left {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    .scrolling-text.show {
+      display: flex;
+    }
+
+    .scrolling-text:not(.show) {
+      display: none;
+    }
+
+    /* Fullscreen button */
+    .fullscreen-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(44, 36, 22, 0.8);
+      border: 3px solid #2C2416;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s;
+      font-family: 'Courier New', monospace;
+    }
+
+    .fullscreen-btn:hover {
+      background: #2C2416;
+      transform: scale(1.1);
+    }
+
+    /* Hide input and status in fullscreen */
+    body.fullscreen .input-area {
+      display: none;
+    }
+
+    body.fullscreen .status-text {
+      display: none;
+    }
+
+    body.fullscreen .fullscreen-btn {
+      top: 10px;
+      right: 10px;
+      opacity: 0.3;
+    }
+
+    body.fullscreen .fullscreen-btn:hover {
+      opacity: 1;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #brainsy-container {
+        transform: scale(2.0);
+      }
+      
+      .status-text {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen button -->
+  <button class="fullscreen-btn" id="fullscreen-btn" title="Toggle Fullscreen">⛶</button>
+
+  <div class="chat-container">
+    <!-- Face Area - FULL SCREEN like Nick Jr. -->
+    <div class="face-area">
+      <div id="brainsy-container"></div>
+      
+      <!-- Scrolling text ticker -->
+      <div class="scrolling-text" id="scrolling-text">
+        <div class="scroll-content" id="scroll-content"></div>
+      </div>
+    </div>
+
+    <!-- Status (optional) -->
+    <div class="status-text" id="status-text"></div>
+
+    <!-- Input Area - Bottom only -->
+    <div class="input-area">
+      <div class="input-container">
+        <input 
+          type="text" 
+          id="user-input" 
+          placeholder="Say something..."
+        />
+        <button class="btn" id="send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="snappy.js"></script>
+  <script>
+    // Initialize Brainsy Face
+    const face = new Snappy('brainsy-container', {
+      size: 200,
+      autoStart: true,
+      blinkInterval: 3000
+    });
+
+    // Start idle
+    face.setState('idle');
+
+    // DOM elements
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusText = document.getElementById('status-text');
+    const scrollingText = document.getElementById('scrolling-text');
+    const scrollContent = document.getElementById('scroll-content');
+    const container = document.getElementById('brainsy-container');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+    let inactivityTimer = null;
+    let scrollTimeout = null;
+
+    // Show scrolling text ticker
+    function showScrollingText(text) {
+      // Clear any existing scroll
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      
+      scrollContent.textContent = text;
+      scrollingText.classList.add('show');
+      
+      // Remove old animation and restart
+      scrollContent.style.animation = 'none';
+      setTimeout(() => {
+        scrollContent.style.animation = 'scroll-left 15s linear';
+      }, 10);
+      
+      // Hide after animation completes
+      scrollTimeout = setTimeout(() => {
+        scrollingText.classList.remove('show');
+      }, 15000);
+    }
+
+    // Toggle fullscreen
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          document.body.classList.add('fullscreen');
+          fullscreenBtn.textContent = '⛶';
+        }).catch(err => {
+          console.log('Fullscreen error:', err);
+        });
+      } else {
+        document.exitFullscreen().then(() => {
+          document.body.classList.remove('fullscreen');
+          fullscreenBtn.textContent = '⛶';
+        });
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    // Also handle escape key
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        document.body.classList.remove('fullscreen');
+      }
+    });
+
+    // Go to sleep after inactivity
+    function goToSleep() {
+      container.classList.add('sleeping');
+      face.setState('sleeping');
+      statusText.textContent = '💤';
+    }
+
+    // Wake up
+    function wakeUp() {
+      if (face.getState() === 'sleeping') {
+        container.classList.remove('sleeping');
+        face.setState('idle');
+        statusText.textContent = '👋';
+        setTimeout(() => {
+          statusText.textContent = '';
+        }, 2000);
+      }
+      resetInactivityTimer();
+    }
+
+    // Reset inactivity timer
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(goToSleep, 5 * 60 * 1000);
+    }
+
+    // Simulate AI response
+    async function getAIResponse(userMessage) {
+      // Show user message scrolling
+      showScrollingText(`You: ${userMessage}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      face.setState('thinking');
+      statusText.textContent = '🤔';
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      face.setState('speaking');
+      statusText.textContent = '💬';
+      
+      // Mock response
+      const responses = [
+        "I hear you!",
+        "That's interesting!",
+        "Tell me more!",
+        "Got it!",
+        "I understand!",
+        "Cool!",
+        "Awesome!",
+        "Nice!",
+        "Let's chat!",
+        "Hello there!"
+      ];
+      const response = responses[Math.floor(Math.random() * responses.length)];
+      
+      showScrollingText(response);
+      
+      setTimeout(() => {
+        face.setState('idle');
+        statusText.textContent = '';
+      }, 4000);
+    }
+
+    // Handle send
+    async function handleSend() {
+      const message = userInput.value.trim();
+      if (!message) return;
+      
+      wakeUp();
+      await getAIResponse(message);
+      userInput.value = '';
+    }
+
+    // Send button
+    sendBtn.addEventListener('click', handleSend);
+
+    // Enter to send
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // F key or F11 for fullscreen
+      if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
+        if (e.target !== userInput) {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+      }
+      // Escape to exit fullscreen
+      if (e.key === 'Escape' && document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    });
+
+    // Wake up on input focus
+    userInput.addEventListener('focus', wakeUp);
+
+    // Start inactivity timer
+    resetInactivityTimer();
+
+    // Welcome message
+    setTimeout(() => {
+      showScrollingText("Hi! I'm Brainsy! Type something or press 'F' for fullscreen!");
+    }, 1000);
+
+    // Random idle animations
+    setInterval(() => {
+      if (face.getState() === 'idle') {
+        const directions = ['left', 'right', 'up', 'down', 'center'];
+        const randomDir = directions[Math.floor(Math.random() * directions.length)];
+        face.look(randomDir);
+        
+        setTimeout(() => {
+          face.look('center');
+        }, 1000);
+      }
+    }, 8000);
+  </script>
+</body>
+</html>

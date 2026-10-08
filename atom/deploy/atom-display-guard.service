@@ -1,0 +1,10 @@
+[Unit]
+Description=ATOM DSI scanout recovery guard
+After=lightdm.service atom.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/linaro/atom/deploy/display-guard.py
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=graphical.target

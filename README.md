@@ -1,698 +1,167 @@
-# VibeBoard — AI 驱动的硬件应用生成平台
+# VibeBoard Desk / ATOM · 独立桌面 AI 终端
 
-> 用自然语言描述你想要的应用，VibeBoard 自动生成代码、编译校验、并通过 SSH 部署到嵌入式设备（泰山派 RK3566）上运行。
+ATOM 是运行在 RK3566 小电脑上的全屏应用系统原型。它保留 Debian 和板厂驱动，用本地 Python 服务、Chromium/EGL 和统一的应用规范，将这台设备变成可以独立使用、通过语音创建应用、运行互动图形作品的桌面终端。
 
-![VibeBoard](https://img.shields.io/badge/Platform-Windows%20%2B%20WSL-blue) ![Node](https://img.shields.io/badge/Node.js-18%2B-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
+**本阶段开发截至 2026-10-08。** 当前实现侧重独立设备体验：电脑 agent 接入是未来扩展，设备不依赖个人电脑保持开机。应用生成和语音服务调用云端 API；基础应用与已部署素材可以离线运行。这里没有部署大型本地语言模型。
 
----
+![桌面与主题](atom/artifacts/gpu-final-desktop.png)
 
-## 目录
+> 仓库保留原有项目；本目录是透明板上的 ATOM 实现。早期计划和验收报告用于追溯，本 README 与[文档索引](atom/docs/README.md)描述当前交付。
 
-- [项目简介](#项目简介)
-- [系统架构](#系统架构)
-- [核心功能](#核心功能)
-- [快速开始](#快速开始)
-- [项目结构](#项目结构)
-- [API 参考](#api-参考)
-- [硬件部署流程](#硬件部署流程)
-- [应用市场](#应用市场)
-- [调试经验与踩坑记录](#调试经验与踩坑记录)
-- [已知限制](#已知限制)
-- [License](#license)
+## 功能与交互
 
----
+| 功能 | 当前实现 |
+| --- | --- |
+| 桌面 | 480×360，3×2 大图标分页；鼠标拖动、滚轮、方向键、分页按钮；新安装应用追加末尾，更新保留位置 |
+| 全屏应用 | 进入应用后隐藏系统常驻顶部/底部；只在必要内容区域滚动；退出回到打开应用时的桌面页 |
+| Home / 空格 | 短按退出到原桌面页；已在桌面时短按回第一页。文本输入时保留普通空格 |
+| 按住说话 | 长按约 650 ms 启动录音，松手自动停止并转写；麦克风启动期间松手也会处理；最长 30 秒 |
+| 工作坊 | 文字或录音输入 → 模型生成 → 状态反馈 → 隔离预览 → 安装/更新；需求草稿保存、任务查询与网络重试 |
+| 应用数据 | AtomApp v1 SDK，应用独立 JSON 保存，64 KiB 限额；预览数据隔离；读取失败禁止默认值覆盖 |
+| 主题与图标 | 官方主题、本地主题包导入、主题图标覆盖；每个应用都有独立语义 SVG，颜色和图标底板跟随系统主题 |
+| 语音 | 云端 ASR 与 TTS；设备扬声器播放；实际录音/转写/生成/播报状态驱动表情；语音提示可关闭 |
+| 麦克风测试 | 原始 PCM 录音、实时 RMS/峰值/削波、最长 30 秒、扬声器回放 |
+| 风扇控制 | 测试应用可临时暂停风扇；语音需求录音自动暂停；停止、退出、失联或温度保护后恢复自动温控 |
+| 设备管理 | 系统状态、音量、背光、开发模式、应用安装更新卸载、图形会话与显示恢复机制 |
 
-## 项目简介
+目前样机桌面包含 9 个内置入口和 41 个安装应用（含麦克风测试）。部分安装应用来自工作坊或早期示例，不全部对应一个 `ports/` 目录。联网应用市场、联网主题市场还没有交付，本地安装管理与主题导入已经可用。
 
-VibeBoard 是一个 **AI + 硬件** 的端到端应用生成平台。用户在 Web 界面中用中文描述想要的应用，系统会：
+## 画面与应用
 
-1. 调用 OpenAI-compatible LLM（内置 DeepSeek / MiniMax / 自定义 Provider）生成 480×360 的 Web 应用代码
-2. 在本地进行语法校验和编译检查
-3. 通过 SSH 将代码上传到泰山派开发板
-4. 重启板端 Chromium Kiosk，应用立即在小屏上运行
+`ports/` 包含适配的小屏幕应用和上游许可；`templates/` 与 `examples/` 提供可导入的 JSON 应用包。
 
-整个流程从描述到真机运行，通常在 **30 秒内** 完成。
+| 类别 | 项目 |
+| --- | --- |
+| GPU 图形 | fluid-atlas、fluid-paint、water-pool、volume-flow、moon-ocean、living-pattern |
+| 天体与模型 | planetarium、model-viewer、material-world |
+| 创作与科学 | pocket-studio、clay-studio、parametric-maker、fold-lab、circuit-lab、math-playground、physics-playground |
+| 音乐互动 | music-vision、rhythm-orbits |
+| 点阵 | dot-life、dot-image、dot-waves、dot-theater |
+| 可爱表情 | robo-face、kaia-face、pixel-companion、snappy-face |
+| 原生体验示例 | 七次练习、饮水计数模板、工具/信息/音乐/趣味模板、麦克风测试 |
 
-### 适用场景
+完整上游来源、固定提交、改动和授权见 [ports/README.md](atom/ports/README.md) 及各应用目录。真实计算场景保留有意义的颜色，工具控件跟随 ATOM 主题。并非所有应用都包含联网能力或专业工具的完整功能。
 
-- 快速原型验证：把想法变成真机上运行的应用
-- 嵌入式 UI 开发：为小屏设备生成专用界面
-- 教学演示：展示 AI 如何与硬件交互
-- IoT 应用：天气、时钟、设备监控等桌面小应用
+![麦克风测试](atom/artifacts/mic-test-fan.png)
 
----
+## 硬件与运行环境
 
-## 系统架构
+样机为透明版泰山派：RK3566、Mali-G52、约 8 GB RAM、480×360 DSI 屏幕，Debian 10 / Linux 4.19.232 / Chromium 91。当前通过鼠标和键盘测试，没有摄像头，也没有实测触屏；触屏和实体 Home 键属于下一版硬件。
 
-```
-┌──────────────────────────────────────────────────────┐
-│                    用户浏览器                          │
-│  ┌──────────┐  ┌───────────┐  ┌───────────────────┐  │
-│  │ 侧边栏    │  │  聊天区    │  │  设备预览 (iframe) │  │
-│  │ 对话列表  │  │  消息流    │  │  480×360 实时预览  │  │
-│  └──────────┘  └───────────┘  └───────────────────┘  │
-└─────────────────────┬────────────────────────────────┘
-                      │ HTTP API
-┌─────────────────────▼────────────────────────────────┐
-│                   server.mjs (Node.js)                │
-│                                                      │
-│  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌───────┐ │
-│  │ 对话管理 │  │  LLM 调用 │  │ 编译校验  │  │ SSH   │ │
-│  │ SQLite  │  │  代码生成  │  │ 语法检查  │  │ 部署  │ │
-│  └─────────┘  └──────────┘  └──────────┘  └───┬───┘ │
-│                                               │      │
-│  ┌─────────────────────────────────────────┐  │      │
-│  │          应用市场 (Marketplace)          │  │      │
-│  │   发布 / 浏览 / 一键部署                 │  │      │
-│  └─────────────────────────────────────────┘  │      │
-└───────────────────────────────────────────────┼──────┘
-                                                │
-                    ┌───────────────────────────▼──────┐
-                    │      泰山派 RK3566 (目标设备)      │
-                    │                                  │
-                    │  Chromium Kiosk (480×360)         │
-                    │  HTTP Server (:8765)              │
-                    │  /home/linaro/workspace/          │
-                    │    taishan-screen/static/         │
-                    └──────────────────────────────────┘
-```
+- GPU：原生 EGL/GLES，已验证 WebGL 和 GPU 栅格化。GLX 的 llvmpipe 结果不能代表这条 EGL 路径。
+- VPU：已实播 H.264 硬解；原生 MPP 编解码、H.265 合成码流测试有记录，不等于浏览器全面支持 HEVC。
+- RGA：原生图像缩放测试通过。
+- NPU：RKNN MobileNet 真实执行通过；没有把 NPU 基准等同于 ASR、TTS 或 OCR 产品已实现。
+- 音频：RK809 codec、PulseAudio、`parec` 收音、`paplay` 回放。样机 Pulse socket 为 `/tmp/pulse-socket`。
 
-### 技术栈
+帧率、延迟等是具体样机的短测结果，不是所有硬件配置的性能承诺。详见[硬件能力基线](atom/docs/hardware-capabilities.md)、[GPU 接入](atom/docs/gpu-enablement.md)。
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | 原生 HTML/CSS/JS，无框架依赖 |
-| 后端 | Node.js (ESM)，原生 HTTP 模块 |
-| 数据库 | SQLite (sql.js) — 对话、消息、市场应用 |
-| LLM | DeepSeek / MiniMax / 自定义 OpenAI-compatible Provider |
-| 硬件通信 | sshpass + SSH (Paramiko 备选) |
-| 内网穿透 | FRP (Fast Reverse Proxy) |
-
----
-
-## 核心功能
-
-### 1. AI 代码生成
-
-- 输入自然语言描述，自动生成 5 个文件：`index.html`, `style.css`, `app.js`, `hardware_app.py`, `manifest.json`
-- 支持 DeepSeek、MiniMax、自定义 OpenAI 兼容 Provider
-- 可配置温度、Token 上限、系统提示词
-- LLM 不可用时自动回退到本地模板生成
-
-### 2. 编译校验
-
-- Node.js `--check` 语法验证
-- 文件完整性检查
-- 生成唯一 Build ID（格式：`vb-<timestamp>-<hash>`）
-
-### 3. 真机部署
-
-- SSH 上传代码到泰山派
-- 自动重启 Chromium Kiosk
-- 备份历史版本到 `backups/` 目录
-- 部署前后状态验证
-
-### 4. 应用市场
-
-- 发布应用到内置市场
-- 浏览、搜索、筛选应用
-- 一键部署市场应用到设备
-- 下载计数统计
-
-### 5. 对话管理
-
-- 多对话历史记录
-- 切换对话自动恢复消息和部署按钮
-- SQLite 持久化存储
-
-### 6. 设备状态监控
-
-- 实时显示板端 Wi-Fi、IP、温度、内存
-- 通过 FRP 隧道获取板端状态
-- PC 端 iframe 预览与板端同步
-
----
-
-## 快速开始
-
-### 环境要求
-
-- **操作系统**: macOS、Linux，或 Windows 10/11 + WSL (Ubuntu)
-- **Node.js**: 18+
-- **Python**: 3.x（默认使用 `python3`，可通过 `VIBEBOARD_PYTHON` 覆盖）
-- **目标设备**: 泰山派 RK3566（或其他支持 SSH 的 Linux 板子）
-- **网络**: 板子通过 FRP 或局域网可达
-
-### 安装
+## 本地开发
 
 ```bash
-# 克隆仓库
-git clone https://github.com/adkinsbai/vibeboard-Desk.git
-cd vibeboard-Desk
-
-# 安装依赖
-npm install
-
-# 启动服务
-npm start
+python3 atom/server.py
 ```
 
-服务默认运行在 `http://127.0.0.1:8789/`
-
-### 配置
-
-通过环境变量配置：
+从仓库根目录启动，打开 `http://127.0.0.1:8770`。Python 3.7+，后端无 pip 依赖；无需 Node 构建桌面。非 Linux 环境可开发界面和应用管理，真实音频、背光、温度和 GPU 需要目标设备。
 
 ```bash
-# 板子密码。未设置时只尝试 SSH key，不会使用源码内置密码。
-export VIBEBOARD_BOARD_PASSWORD="your-board-password"
-
-# 可选：Python 解释器，macOS/Linux 默认 python3
-export VIBEBOARD_PYTHON="python3"
-
-# 可选：板卡与 FRP 配置
-export VIBEBOARD_BOARD_HOST="150.158.146.192"
-export VIBEBOARD_BOARD_PORT="6278"
-export VIBEBOARD_BOARD_USER="linaro"
-export VIBEBOARD_FRP_HOST="150.158.146.192"
-export VIBEBOARD_FRP_PORT="6278"
-
-# 可选：部署路径
-export VIBEBOARD_TARGET_STATIC="/home/linaro/workspace/taishan-screen/static"
-export VIBEBOARD_APP_ROOT="/home/linaro/workspace/taishan-screen"
-export VIBEBOARD_BOARD_SERVICE="taishan-screen.service"
+python3 -m unittest discover -s atom/tests -v
+node atom/tests/app-host.test.cjs
+node atom/tests/app-runtime.test.cjs
+python3 atom/tools/check_app.py atom/examples/mic-test.json
 ```
 
-LLM Provider 和 API Key 在 Web 界面的「配置模型」中设置，只保存在浏览器本地；未配置时会使用本地模板生成。
+Node 用于协议测试；原生 WASM/上游移植构建另有工具要求，见各构建脚本和移植文档。
 
-### 快速验证
+## 在 Debian 样机部署
+
+先备份目标设备的图形会话、systemd、音频与显示配置。当前部署脚本面向用户名 `linaro`、路径 `/home/linaro/atom` 的这台 BSP 样机，其他板卡需要按实际系统适配，不是通用刷机工具。
+
+1. 将 `atom/` 复制到 `/home/linaro/atom`，安装 Python 3、Chromium、Openbox、LightDM、PulseAudio、ALSA 工具、curl 和 xset 等运行依赖。
+2. 设备执行 `sh /home/linaro/atom/deploy/install.sh`，安装后端与专用图形会话。
+3. 图形登录选择 ATOM；`start-atom.sh` 使用原生 `chromium-bin` 和 EGL。会话自动恢复浏览器，后端由 systemd 自动重启。
+4. 显示保护服务和 Xorg 配置需依照[部署指南](atom/docs/deployment.md)单独审核安装。
+5. 应用包安装前在设置启用开发模式；第三方大型移植必须复制完整资源目录。
 
 ```bash
-# 检查语法
-npm run check
-
-# 测试本地 API（不要求真机在线）
-curl http://127.0.0.1:8789/api/conversations
-
-# 测试真机状态代理（要求 SSH/FRP 可达）
-curl http://127.0.0.1:8789/api/status
+systemctl status atom
+journalctl -u atom -n 50 --no-pager
 ```
 
----
-
-## 项目结构
-
-```
-vibeboard/
-├── server.mjs          # 后端 HTTP 组合入口（路由 + 部署编排）
-│                       # - HTTP 服务器
-│                       # - LLM 代码生成
-│                       # - 编译校验
-│                       # - SSH 部署管道
-│                       # - 对话/消息 API
-│                       # - 应用市场 API
-│                       # - 板端状态代理
-│
-├── src/                # 已抽出的后端模块
-│   ├── devices.mjs           # 设备注册表、公开配置、endpoint 排序
-│   ├── marketCatalog.mjs     # 静态市场目录与市场代码读取
-│   ├── conversationStore.mjs # 对话/消息 SQLite 访问
-│   └── modelSettings.mjs     # Provider preset 与模型配置标准化
-│
-├── test/               # node:test 测试
-│
-├── index.html          # 主页 HTML
-├── styles.css          # 全局样式（深色主题）
-├── app.js              # 前端主逻辑
-│                       # - 对话管理
-│                       # - 消息渲染
-│                       # - 生成/构建/部署流程
-│                       # - 模型配置面板
-│
-├── market.html         # 应用市场页面
-│                       # - 应用列表/搜索/筛选
-│                       # - 一键部署 + 进度条
-│
-├── package.json        # 项目配置
-├── .gitignore          # Git 忽略规则
-│
-├── skills/             # Hermes Agent 技能文件
-│   └── vibeboard-gray-deploy/
-│       ├── SKILL.md    # 部署操作手册
-│       └── references/
-│           └── gray-board-runbook.md
-│
-└── README.md           # 本文件
-```
-
-### 运行时生成的目录（不提交到 Git）
-
-```
-generated/
-├── current/            # 当前生成的应用文件
-│   ├── index.html
-│   ├── style.css
-│   ├── app.js
-│   ├── hardware_app.py
-│   └── manifest.json
-└── <build-id>/         # 历史构建存档
-
-runtime/
-└── start-kiosk.sh      # 板端 Kiosk 启动脚本
-```
-
----
-
-## API 参考
-
-### 对话 API
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/conversations` | 获取所有对话列表 |
-| `POST` | `/api/conversations` | 创建新对话 |
-| `GET` | `/api/conversations/:id/messages` | 获取对话消息 |
-| `POST` | `/api/conversations/:id/messages` | 添加消息 |
-| `DELETE` | `/api/conversations/:id` | 删除对话 |
-
-### 生成 API
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `POST` | `/api/generate` | AI 代码生成 |
-| `POST` | `/api/build` | 编译校验 |
-| `POST` | `/api/deploy` | 部署到板端 |
-| `GET` | `/api/verify` | 验证当前或指定 build id 的真机闭环 |
-
-### 市场 API
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/market` | 获取市场应用列表 |
-| `GET` | `/api/market/:id` | 获取单个应用详情 |
-| `POST` | `/api/market/publish` | 发布应用到市场 |
-| `POST` | `/api/market/:id/deploy` | 从市场部署应用 |
-
-### 设备 API
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/board` | 获取当前设备状态摘要 |
-| `GET` | `/api/board-config` | 获取当前设备配置和可选设备列表 |
-| `POST` | `/api/board-config` | 切换或更新当前设备配置 |
-| `GET` | `/api/status` | 获取板端状态（代理） |
-
----
-
-## 硬件部署流程
-
-### 目标设备：泰山派 RK3566
-
-| 配置项 | 值 |
-|--------|-----|
-| SSH 用户 | 按设备 Profile 决定：灰板默认 `root`，透明板默认 `linaro`；可用 `VIBEBOARD_BOARD_USER` 覆盖当前设备 |
-| SSH 端口 | FRP: 灰板 `150.158.146.192:6278`；透明板 `150.158.146.192:6223` |
-| 应用目录 | `/home/linaro/workspace/taishan-screen/static/` |
-| Kiosk URL | `http://127.0.0.1:8765/` |
-| 屏幕分辨率 | 480×360 |
-| 系统服务 | `taishan-screen.service` |
-
-### 部署步骤
-
-```
-1. 生成代码  →  LLM 生成 5 个文件
-2. 编译校验  →  Node.js --check 语法验证
-3. SSH 上传  →  通过 sshpass 上传到板端
-4. 写入文件  →  板端 base64 解码并写入
-5. 重启服务  →  systemctl restart taishan-screen
-6. 启动 Kiosk → Chromium --kiosk --window-size=480,360
-7. 验证状态  →  检查 build_id 和 HTTP 状态
-```
-
-### 板端验证命令
+服务只绑定本机回环地址。远程管理推荐 SSH 隧道：
 
 ```bash
-# 检查 Kiosk 进程
-pgrep -a chromium
-
-# 检查 HTTP 服务
-curl -fsS http://127.0.0.1:8765/api/status
-
-# 检查 build_id
-grep -o 'vb-[a-z0-9-]*' /home/linaro/workspace/taishan-screen/static/index.html | head -1
-
-# 检查屏幕分辨率
-DISPLAY=:0 xwininfo -root | grep -E 'Width|Height'
-
-# 检查服务状态
-systemctl is-active taishan-screen.service
+ssh -N -L 8770:127.0.0.1:8770 DEVICE_USER@DEVICE_HOST
+python3 atom/tools/deploy_app.py --target http://127.0.0.1:8770 list
+python3 atom/tools/deploy_app.py --target http://127.0.0.1:8770 install atom/examples/mic-test.json
 ```
 
----
+具体私有设备地址、密码、SSH 私钥、模型密钥不随仓库发布。
 
-## 应用市场
+## 模型与语音配置
 
-VibeBoard 内置了一个轻量级应用市场，支持：
+工作坊 → 模型配置，分别配置应用生成、录音转写与语音播报。主流协议入口和厂商预设可用，但不是所有厂商、所有模型都已逐一真机验证。
 
-- **发布应用**：在主界面生成应用后，点击「发布到市场」按钮
-- **浏览应用**：访问 `/market.html` 查看所有已发布应用
-- **搜索筛选**：按名称搜索，按热门/最新筛选
-- **一键部署**：点击「部署到我的设备」，带进度条的部署体验
+- 应用生成：样机默认 DeepSeek `deepseek-flash`；生成代码需预览和操作验证。
+- 录音转写：智谱 `glm-asr-2512`，上传 16 kHz、单声道原始 WAV。
+- 文字播报：智谱 `glm-tts`，默认彤彤 `tongtong`，支持 7 个音色，最多 1024 字。
+- ASR/TTS 独立于生成模型；需要网络和用户自己的有效账户/API Key。
+- 密钥存放在设备 `state/model.json`，权限 0600；配置 API 只返回是否设置，不返回明文。
 
-### 部署进度条
+按住空格说应用需求，松手后转写到可编辑的需求框，然后由用户发起生成。语音当前不是完整的自由对话助手。[语音接口与验收](atom/docs/voice-zhipu.md)。
 
-市场部署包含 4 个可视化步骤：
+## 麦克风与风扇诊断
 
-1. **写入代码文件** — 将应用代码写入 `generated/current/`
-2. **编译构建** — 语法校验和文件完整性检查
-3. **上传到设备** — 通过 SSH 传输到板端
-4. **部署并重启服务** — 重启 Kiosk 和 HTTP 服务
+样机自接两线咪头安装在机壳内，用户提供原理图显示 MIC1p 接入、MIC1n 悬空；系统原设备树却启用差分模式。目前使用可恢复的单端运行时测试，未修改启动镜像，尚未证明底噪已经解决。
 
----
+麦克风测试显示数字电平 dBFS，不是声压计，也不是声波形。先保持安静，再以固定距离说同一句话，录音回放比较风扇开关、咪头位置和人声清晰度。测试保留原始声音，没有用降噪掩盖底噪。
 
-## 调试经验与踩坑记录
+风扇控制依赖本机 GPIO3 A4 和已有 `taishan-fan` 服务。临时关闭最多 120 秒，60°C 恢复散热；页面失联 5 秒后恢复。按住说话期间由录音服务保持暂停，录音失败/停止/超时恢复温控。风扇未接通或温度不允许暂停时，语音仍可录制。
 
-这是在开发 VibeBoard 过程中积累的真实调试经验，包含多个棘手问题的完整排查过程。
+安装、恢复和权限说明见[音频与风扇指南](atom/docs/audio-diagnostics.md)。不要将此板专用寄存器或 GPIO 设置直接用于其他硬件。
 
-### 🔥 问题 1：Deploy 500 错误 — Windows 命令行转义地狱
+## 应用开发规范
 
-**现象**：`POST /api/deploy` 返回 500 错误，但本地直接执行 SSH 命令正常。
+- 应用全屏，避免网页式整页滚动；必要列表独立滚动。
+- 每个应用提供独立 `icon.svg`，64×64 viewBox、透明、单色 `currentColor`；主题负责图标底色、边框、圆角和墨色。
+- 普通应用跟随当前系统主题；固定主题是明确选择。
+- `AtomApp.deferReady()/ready()` 表达真实启动状态；`load/save` 提供独立数据保存；`onSuspend` 清理定时器、音频、GPU。
+- `iframe sandbox="allow-scripts"` 不授予同源权限。设备能力通过限定当前来源的 shell 桥接，不给任意应用开放写 API。
+- 更新保留图标、安装顺序；新应用追加到桌面末尾。
 
-**根因**：Node.js 的 `child_process.exec()` 在 Windows 上会通过 `cmd.exe` 执行命令，而 `cmd.exe` 会对 `%`、`"`、`!` 等字符进行二次转义，导致传给 SSH 的远程命令被破坏。
+阅读[应用协议](atom/docs/app-contract.md)、[设计规范](atom/docs/design-system.md)、[开发指南](atom/docs/developer-guide.md)和 [AGENTS.md](AGENTS.md)。
 
-**排查过程**：
+## 仓库结构
 
-1. 在 `deployCurrent()` 中添加 `console.log` 追踪实际执行的命令
-2. 发现包含双引号的远程 shell 命令在 Windows `CreateProcess` 中被错误转义
-3. 例如 `sshpass ... ssh user@host "echo 'hello'"` 中的双引号被吞掉
-
-**解决方案**：
-
-```javascript
-// ❌ 错误：命令中的引号会被 Windows 转义
-const cmd = `sshpass -p ${pass} ssh ${user}@${host} "echo 'hello'"`;
-
-// ✅ 正确：使用 bash -s 通过 stdin 传递命令
-const cmd = `sshpass -p ${pass} ssh ${user}@${host} bash -s`;
-// 然后通过 stdin 写入实际命令
+```text
+atom/
+  server.py                 本地 API、静态服务、安装器
+  workshop.py               模型适配、生成任务、配置管理
+  voice.py / stt.py / tts.py  真机录音、云转写、异步播报
+  static/                   桌面、工作坊、主题与应用 SDK
+  deploy/                   样机启动、显示保护、音频诊断工具
+  docs/                     当前指南、设计规范、历史验证
+  templates/ / examples/    JSON 应用包
+  ports/                    完整移植资源与上游许可证
+  mic-test/                 麦克风测试源文件
+  tools/                    构建、校验、部署和硬件测试工具
+  tests/                    后端与 JS 协议测试
+  artifacts/                不含密钥的截图及验收记录
 ```
 
-**关键修改**：`paramikoExecOnce()` 函数改为使用 `bash -s` 模式，所有远程命令通过 stdin 传递，完全绕过 Windows 命令行转义。
+`apps/`、`state/`、`vendor/`、缓存与设备私有配置不提交。`ports/` 保留可部署资源；部分入口 `bundle.json` 不含大型纹理/WASM/JS，不能只安装入口包就宣称完成离线部署。
 
----
+## 当前边界与后续工作
 
-### 🔥 问题 2：Python 子进程 input 类型错误
+- 尚无电脑 agent 的正式桥接、云平台账户体系、联网应用/主题市场、通用 OCR 应用、摄像头/手势功能。
+- 后端生成任务保存在内存；页面重载和短暂断网可恢复查询，服务重启后任务失效，草稿仍保留。
+- JSON 安装有运行时回滚，不保证断电事务；还需要系统升级、签名分发、持续负载和断电测试。
+- Debian 10 / Chromium 91 是原型 BSP；启动器使用 `--no-sandbox`，iframe 隔离不能代替操作系统沙箱。正式产品必须升级受维护底座并完成安全验证。
+- 下一版触屏、物理 Home 键、音频硬件布局和风扇声学隔离仍需真实硬件验证。
+- 多个上游采用 MIT / Apache / GPL 等不同许可。保留每个项目的 LICENSE、版权和源码；不要将整个移植合集当作统一许可。部分图片素材的商业授权还需单独核对。
 
-**现象**：`uploadBundle()` 函数报 `TypeError: a bytes-like object is required, not 'str'`
+当前暂停功能开发，保留可运行样机、源代码、文档和测试证据作为下一阶段基线。
 
-**根因**：Python 的 `subprocess.run()` 在 `input` 参数中需要 bytes，但传入了 string。
+## 早期网页生成平台
 
-**解决方案**：
-
-```python
-# ❌ 错误
-subprocess.run([...], input="some string")
-
-# ✅ 正确
-subprocess.run([...], input="some string".encode())
-```
-
----
-
-### 🔥 问题 3：Windows % 变量扩展
-
-**现象**：Python 脚本中的 `%s` 格式化字符串被 Windows `cmd.exe` 提前扩展。
-
-**根因**：Windows `cmd.exe` 会将 `%s` 中的 `%s` 视为环境变量引用（`%s` → 空字符串）。
-
-**排查过程**：
-
-1. Python 脚本在 Linux 上正常，通过 Windows 的 `child_process` 调用时失败
-2. 添加调试日志发现 `%s.tmp.%s` 被展开为空字符串
-3. 定位到 Windows 的 `%` 变量扩展机制
-
-**解决方案**：使用 base64 编码传输 Python 脚本和数据，完全避免特殊字符问题：
-
-```javascript
-// 将 Python 脚本和数据都 base64 编码
-const scriptB64 = Buffer.from(pythonScript).toString('base64');
-const dataB64 = Buffer.from(JSON.stringify(data)).toString('base64');
-
-// 在 Python 中解码执行
-const cmd = `python3 -c "import base64; exec(base64.b64decode('${scriptB64}').decode())"`;
-```
-
----
-
-### 🔥 问题 4：Electron 安装程序 icudtl.dat 缺失
-
-**现象**：使用 Inno Setup 打包的 Electron 应用启动时崩溃，错误：`[ERROR:icu_util.cc(223)]`
-
-**根因**：Electron 依赖 `icudtl.dat` 国际化数据文件，但 Inno Setup 的 `.iss` 文件没有显式包含它。
-
-**解决方案**：在 `.iss` 文件的 `[Files]` 段中显式添加：
-
-```ini
-[Files]
-Source: "{app}\icudtl.dat"; DestDir: "{app}"; Flags: ignoreversion
-```
-
----
-
-### 🔥 问题 5：Paramiko SSH 通过 FRP 认证失败
-
-**现象**：Python Paramiko 库通过 FRP 隧道连接板端 SSH 时认证失败，但直接 `sshpass` 命令正常。
-
-**根因**：FRP 隧道对 SSH 协议的交互式认证有兼容性问题，特别是键盘交互式认证（keyboard-interactive）模式。
-
-**解决方案**：放弃 Paramiko，改用 `sshpass` 子进程方式：
-
-```javascript
-// 使用 sshpass + ssh 命令，而不是 Paramiko
-const cmd = `sshpass -p ${password} ssh -o StrictHostKeyChecking=no -p ${port} ${user}@${host} bash -s`;
-```
-
-**教训**：在嵌入式 + FRP 场景下，简单的命令行工具比复杂的 SSH 库更可靠。
-
----
-
-### 🔥 问题 6：Kiosk 右侧画面裁剪
-
-**现象**：板端 Chromium Kiosk 显示的应用右侧被裁剪。
-
-**排查过程**：
-
-1. 检查 `xwininfo -root`：分辨率确实是 480×360
-2. 检查 Chromium 启动参数：`--window-size=480,360` 正确
-3. 检查生成的 HTML：发现使用了 `width: 100vw` 而不是固定 `480px`
-
-**根因**：`100vw` 在 Chromium Kiosk 模式下可能包含滚动条宽度，导致实际宽度超过 480px。
-
-**解决方案**：
-
-```css
-/* ❌ 错误：vw 单位在 Kiosk 模式下不可靠 */
-html, body { width: 100vw; height: 100vh; }
-
-/* ✅ 正确：使用固定像素值 */
-html, body {
-  width: 480px;
-  height: 360px;
-  overflow: hidden;
-}
-```
-
----
-
-### 🔥 问题 7：Chromium 重启后不显示
-
-**现象**：`systemctl restart taishan-screen` 后 Chromium 进程存在但屏幕无显示。
-
-**根因**：`pkill chromium` 使用 SIGTERM 信号，Chromium 可能不会立即退出，导致新进程与旧进程冲突。
-
-**解决方案**：
-
-```bash
-# ❌ 错误：SIGTERM 可能不够
-pkill chromium
-
-# ✅ 正确：强制杀死 + 等待
-pkill -9 chromium-bin 2>/dev/null
-pkill -9 chromium 2>/dev/null
-sleep 1
-# 然后启动新的 Kiosk
-```
-
----
-
-### 🔥 问题 8：对话切换后聊天内容清空
-
-**现象**：在侧边栏切换不同对话时，聊天区内容全部消失。
-
-**根因**：`selectConversation()` 函数的 `renderMessages()` 只渲染纯文本消息，不包含：
-- 阶段进度卡片（Stage Cards）
-- 部署按钮（Deploy Button）
-- 文件预览
-
-切换对话后这些交互元素丢失，用户感觉「内容被清空」。
-
-**解决方案**：
-
-```javascript
-function renderMessages(messages) {
-  // ... 渲染消息 ...
-
-  // 恢复部署按钮：检查最后一条消息的 build_id
-  let lastBuildId = null;
-  messages.forEach(msg => {
-    if (msg.build_id) lastBuildId = msg.build_id;
-  });
-
-  if (lastBuildId) {
-    // 重新创建部署按钮
-    addDeployButton(lastBuildId);
-  }
-}
-```
-
-同时增加：
-- 加载中状态显示
-- 空消息欢迎语
-- busy 状态禁止切换
-
----
-
-### 🔥 问题 9：市场部署无反馈
-
-**现象**：在应用市场点击「部署到我的设备」后，界面没有任何反应，直到部署完成才弹出 alert。
-
-**根因**：`deployApp()` 函数使用 `await fetch()` 同步等待，部署过程 15-30 秒期间没有任何视觉反馈。
-
-**解决方案**：添加进度条遮罩层，按时间模拟 4 个步骤的进度：
-
-```
-写入代码 (0-2s) → 编译构建 (2-6s) → 上传到设备 (6-12s) → 部署重启 (12s+)
-```
-
-部署完成后自动标记所有步骤为 ✓ 或标记失败步骤为 ✕。
-
----
-
-### 🔥 问题 10：LLM 生成代码中的相对路径问题
-
-**现象**：生成的应用在板端正常，但 PC 端预览 iframe 加载失败。
-
-**根因**：LLM 生成的 HTML 使用绝对路径 `/style.css`，在 PC 端会加载平台根目录的 CSS 而不是生成目录的。
-
-**解决方案**：在系统提示词中明确要求使用相对路径：
-
-```
-生成的 HTML 中必须使用相对路径：
-- ✅ ./style.css
-- ✅ ./app.js
-- ❌ /style.css
-- ❌ /app.js
-```
-
----
-
-### 🔥 问题 11：SSH 连接在 FRP 下不稳定
-
-**现象**：通过 FRP 隧道执行多个 SSH 命令时，后面的命令偶尔失败。
-
-**根因**：FRP 对 SSH 连接的保活机制不如直连稳定，多个短连接容易被中断。
-
-**解决方案**：
-
-1. 减少 SSH 连接次数：将多个命令合并为一个脚本通过 stdin 传输
-2. 使用 `bash -s` 模式：单次连接执行多条命令
-3. 添加重试机制：关键操作失败后自动重试
-
----
-
-### 🔥 问题 12：SQLite 数据库并发访问
-
-**现象**：同时发多个请求时偶现 `SQLITE_BUSY` 错误。
-
-**解决方案**：
-
-```javascript
-// 设置 WAL 模式和忙等待超时
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 5000');
-```
-
----
-
-## 已知限制
-
-| 限制 | 说明 |
-|------|------|
-| 单用户 | 当前设计为单用户使用，不支持多用户并发 |
-| SSH 依赖 | 部署需要本机可执行 `ssh`，密码登录需要可用的 `sshpass` 路径或通过 SSH key 登录 |
-| LLM 依赖 | 代码生成依赖外部 LLM API，离线时只能使用本地模板 |
-| 固定分辨率 | 生成的应用固定为 480×360，不支持自适应布局 |
-| 无认证 | 没有用户认证机制，任何人可以访问和操作 |
-| 数据库 | 使用 SQLite 文件，不支持分布式部署 |
-
----
-
-## 开发指南
-
-### 添加新的 LLM Provider
-
-当前后端通过 OpenAI-compatible `/chat/completions` 生成应用。Provider preset 位于 `src/modelSettings.mjs`；如果服务兼容该接口，通常只需要在 Web 界面的「配置模型」里选择 Custom 并填写 Base URL、Model 和 API Key。
-
-新增内置 preset 时，修改 `src/modelSettings.mjs` 并补充 `test/modelSettings.test.mjs`。
-
-### 自定义板端配置
-
-通过环境变量覆盖板端参数：
-
-```bash
-export VIBEBOARD_BOARD_ID="my-board"
-export VIBEBOARD_BOARD_LABEL="My Board"
-export VIBEBOARD_BOARD_HOST="192.168.1.50"
-export VIBEBOARD_BOARD_PORT="22"
-export VIBEBOARD_BOARD_USER="linaro"
-export VIBEBOARD_FRP_HOST="150.158.146.192"
-export VIBEBOARD_FRP_PORT="6278"
-export VIBEBOARD_TARGET_STATIC="/path/to/static"
-export VIBEBOARD_APP_ROOT="/path/to/app"
-export VIBEBOARD_BOARD_SERVICE="taishan-screen.service"
-```
-
-### 运行测试
-
-```bash
-# 语法检查
-npm run check
-
-# 单元测试
-npm test
-
-# 启动开发服务器
-npm start
-
-# 查看日志
-tail -f server.log
-```
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## 致谢
-
-- **泰山派** — 提供 RK3566 开发板硬件支持
-- **DeepSeek / MiniMax** — LLM API 服务
-- **FRP** — 内网穿透工具
-- **Hermes Agent** — AI 辅助开发工具
-
----
-
-*VibeBoard — 让 AI 成为你的硬件应用开发者。*
+根目录原有的 Node/Web 平台代码保持保留，原运行方法见[早期网页平台说明](docs/vibeboard-web-legacy.md)。当前小电脑的桌面、工作坊与语音实现都在 atom/。

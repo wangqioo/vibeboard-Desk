@@ -1,0 +1,2 @@
+# Allow the existing video group to adjust only backlight brightness.
+ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chgrp video /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"

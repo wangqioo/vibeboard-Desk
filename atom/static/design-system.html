@@ -1,0 +1,37 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ATOM 应用设计</title><link rel="stylesheet" href="/atom-ui.css"><style>body{padding:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}</style><a href="/">返回 ATOM</a><p><a href="/app-contract.html">应用生命周期与保存接口 v1</a></p><h1>应用设计与模板</h1><p><a download href="/templates/tool.json">工具模板</a> · <a download href="/templates/info.json">信息模板</a> · <a download href="/templates/playful.json">创意模板</a></p><pre># ATOM 应用设计约定
+
+界面应像一个具体的小工具，而不是通用 AI 展示页。统一外壳与基础控件，让内容和交互表达创意。避免无用途的营销标题、装饰性状态徽章、统计卡片、渐变和阴影。
+
+## 基础样式
+
+暖白 `#f3f0e8` 为底，墨黑 `#242622` 为正文，朱红 `#df5038` 为图形强调，深朱红 `#b53c28` 为主按钮背景，深灰 `#62665d` 为辅助文字，灰 `#787a70` 仅用于非文字装饰，线 `#d5d3c8` 为分隔。间距以 8px 为单位。按钮圆角 6px，面板默认直角，可按用途在 0–8px 范围调整。正文 16px，辅助标签 12px；中文用系统无衬线字体，数字用等宽字体。不要使用外网字体。
+
+`static/atom-ui.css` 提供 `.atom-app`、`.atom-button`、`.atom-button-primary`、`.atom-row`、`.atom-panel`、`.atom-label`、`.atom-number`、`.atom-message`。`static/atom-ui.js` 提供 `window.AtomUI.escape(text)`、`button(text, options)`、`label(text)`、`row(componentHTMLArray)`。button options 支持 id、primary、disabled。row 接受可信组件 HTML；用户文本必须先 escape。
+
+tokens 的机器可读源为 `design-system/tokens.json`。修改 token 后需同步 CSS 和模板的内嵌版本，避免样式漂移。
+
+## 可安装模板
+
+- `templates/tool.json`：饮水计数，支持增加与撤销，明确保存在设备，重开保留状态。
+- `templates/info.json`：今日计划示例，可点击完成，明确内容是样例且未连接日历。
+- `templates/playful.json`：点阵角色，可切换三种状态。
+
+模板内嵌同版 CSS 和 JS，并附紧凑布局覆盖。屏幕480×360，外壳顶部44px、底部44px，应用实际内容区域480×272；模板8–12px内边距、点阵角色78px、按钮至少48px高，操作应无需滚动。无网络、localStorage、父页面或设备权限依赖，可在 sandbox iframe 中离线运行。修改 manifest.id 后即可作为自己的应用，安装方法见 developer-guide.md。
+
+一致性约束针对按钮、文字层级、间距和操作反馈；角色、绘画、游戏画面允许自由配色和布局。不要让约定把所有应用变成相同的卡片。按应用用途保留一个明显主操作，并使用真实数据或清楚标记样例。
+
+## 给 coding agent 的生成提示
+
+&gt; 为 ATOM 屏幕480×360、应用内容区域480×272的桌面设备生成一个可安装 Web bundle JSON。先读取 atom/templates 中最接近的模板，保留自包含 CSS/JS 与 manifest/files 结构。使用 ATOM 暖白、墨黑、朱红 token，8px 间距、16px 正文、12px标签、至少48px高的按钮。应用功能是：[填写一个具体用途]。避免营销文案、渐变、阴影和无用途的卡片。所有操作必须有真实行为及状态反馈；静态样例明确标注。应用在 allow-scripts sandbox 内离线运行，不依赖 localStorage、外网字体、父页面、WebGL或系统命令。不能承诺持久化或后台运行。输出 JSON 文件，说明测试步骤与实际能力边界。
+
+## 验收
+
+1. 480×272 应用区域下主要操作可见，文本不被截断；必要滚动有明确内容。
+2. 按钮至少48px高，键盘焦点可见，禁用状态与行为一致。
+3. 数字变化、切换、撤销等交互真的工作，重复点击不破坏状态。
+4. 不显示虚构的实时天气、联网状态、用户任务或持久保存成功。
+5. 断网能运行；sandbox 内没有存储异常或父页面依赖。
+6. 应用自身不绘制第二套系统导航；系统返回仍可退出。
+7. 有动画时尊重 prefers-reduced-motion，避免持续高频计时与 GPU 依赖。
+8. 通过开发模式安装与更新验证，而不是只看生成的截图。
+</pre></html>

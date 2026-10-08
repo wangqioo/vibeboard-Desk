@@ -1,0 +1,158 @@
+{
+  "launch": [
+    {
+      "id": "robo-face",
+      "ready": "ready",
+      "ms": 1013,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "kaia-face",
+      "ready": "ready",
+      "ms": 2857,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "pixel-companion",
+      "ready": "ready",
+      "ms": 963,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "snappy-face",
+      "ready": "ready",
+      "ms": 1018,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "fluid-atlas",
+      "ready": "ready",
+      "ms": 1640,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "water-pool",
+      "ready": "ready",
+      "ms": 5140,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "music-vision",
+      "ready": "ready",
+      "ms": 4960,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "math-playground",
+      "ready": "ready",
+      "ms": 1523,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "material-world",
+      "ready": "ready",
+      "ms": 1110,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "dot-theater",
+      "ready": "ready",
+      "ms": 953,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    },
+    {
+      "id": "template-tool",
+      "ready": "ready",
+      "ms": 825,
+      "fullscreen": {
+        "scroll": [
+          480,
+          360
+        ],
+        "chrome": "none"
+      }
+    }
+  ],
+  "storage": {
+    "saved": "已保存，重新打开会保留",
+    "oversizeRejected": true,
+    "reopened": true,
+    "isolated": {
+      "empty": true
+    },
+    "otherAppCannotOverwrite": true
+  },
+  "companion": {
+    "engine": "RoboEyes-WASM",
+    "state": "idle",
+    "frames": "10"
+  },
+  "animationDisabled": true,
+  "voice": {
+    "page": "voice",
+    "title": "我在听",
+    "state": "listening",
+    "stopped": true
+  },
+  "errors": []
+}

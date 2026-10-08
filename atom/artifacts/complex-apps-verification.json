@@ -1,0 +1,135 @@
+[
+  {
+    "id": "volume-flow",
+    "render": {
+      "fps": 21,
+      "glError": 0,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  },
+  {
+    "id": "living-pattern",
+    "paused": true,
+    "render": {
+      "fps": 28,
+      "glError": 0,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  },
+  {
+    "id": "moon-ocean",
+    "environment": "sunset",
+    "render": {
+      "fps": 47,
+      "glError": 0,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  },
+  {
+    "id": "physics-playground",
+    "scenarios": [
+      {
+        "mode": "domino",
+        "bodies": 26,
+        "constraints": 1
+      },
+      {
+        "mode": "bridge",
+        "bodies": 21,
+        "constraints": 16
+      },
+      {
+        "mode": "sling",
+        "bodies": 16,
+        "constraints": 2
+      }
+    ],
+    "slingshot": {
+      "launched": true,
+      "elasticRemoved": true,
+      "collisions": 15
+    },
+    "render": {
+      "fps": 62,
+      "glError": null,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  },
+  {
+    "id": "pocket-studio",
+    "audio": {
+      "playing": true,
+      "audioReady": true,
+      "beatsPlayed": 16,
+      "context": "running"
+    },
+    "saved": "已保存到本机，退出后仍可恢复",
+    "invalidRejected": true,
+    "restored": "已恢复本机存档",
+    "render": {
+      "fps": 62,
+      "glError": null,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  },
+  {
+    "id": "model-viewer",
+    "obj": {
+      "triangles": 2,
+      "name": "cube.obj",
+      "info": "2 三角面 · 10.00 × 20.00 × 0.00 模型单位"
+    },
+    "stl": {
+      "triangles": 1,
+      "name": "triangle.stl",
+      "info": "1 三角面 · 10.00 × 20.00 × 30.00 模型单位"
+    },
+    "render": {
+      "fps": 62,
+      "glError": 0,
+      "scroll": [
+        360,
+        360
+      ]
+    },
+    "home": true,
+    "errors": [],
+    "bad": [],
+    "logs": []
+  }
+]

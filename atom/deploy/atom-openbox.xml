@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <focus><focusNew>yes</focusNew><followMouse>no</followMouse></focus>
+  <desktops><number>1</number><firstdesk>1</firstdesk><names><name>ATOM</name></names><popupTime>0</popupTime></desktops>
+  <keyboard/>
+  <mouse><context name="Client"><mousebind button="Left" action="Press"><action name="Focus"/></mousebind></context></mouse>
+  <applications><application class="Chromium-browser"><desktop>1</desktop><decor>no</decor><focus>yes</focus></application></applications>
+</openbox_config>

@@ -1,0 +1,2 @@
+Apache-2.0 upstream Face engine and original expression images retained; image assets embedded as data URLs for offline opaque iframe compatibility. Fabric 1.7.22 MIT from npm, license included. Fix ExpressionElement local Face/face casing bug (upstream assumed a global face instance). Render capped near30fps, 340x340 face; pointer, automatic reel and sleep. No camera or model.
+Controls hide after2.2s; right-click opens local panel, no document scrolling. Apps offline after install. New app append; Space via system bridge.

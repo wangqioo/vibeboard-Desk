@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Electron / runtime logs
+*.log
+*.out
+*.err
+run*.log
+
+# Local preview / debug artifacts
+_*.png
+_render.png
+_*.js
+_patch.js
+previews/
+.playwright-mcp/
+
+# Local code intelligence (CodeGraph index)
+.codegraph/
+
+# Unrelated coursework kept in this folder
+CODEPATH Proj/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Personal launch copy, not part of the project
+linkedin-post.md

@@ -1,0 +1,45 @@
+{
+  "name": "snappy",
+  "version": "1.0.0",
+  "description": "Expressive fullscreen animated face with emotion detection, eye tracking, and AI integration. Built with vanilla HTML, CSS, and JavaScript.",
+  "main": "snappy.js",
+  "style": "snappy.css",
+  "files": [
+    "snappy.js",
+    "snappy.css",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "demo": "open index.html",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "animation",
+    "ai",
+    "chatbot",
+    "face",
+    "avatar",
+    "ui",
+    "clawdbot",
+    "conversational-ai",
+    "emotion",
+    "eye-tracking",
+    "interactive",
+    "expressive",
+    "assistant"
+  ],
+  "author": "Brainsy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BrainsyETH/expressive-face.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BrainsyETH/expressive-face/issues"
+  },
+  "homepage": "https://github.com/BrainsyETH/expressive-face#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

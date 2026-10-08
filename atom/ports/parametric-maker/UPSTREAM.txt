@@ -1,0 +1,3 @@
+https://github.com/jscad/OpenJSCAD.org
+SHA f245ea3a5072024b789f276c6fb9ce6c3eb3fd0d
+ATOM adaptation: local controls, reduced complexity; upstream license retained.

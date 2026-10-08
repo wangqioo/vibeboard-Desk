@@ -1,0 +1,7 @@
+[Unit]
+Description=ATOM temporary single-ended microphone test helper
+[Service]
+ExecStart=/usr/local/sbin/atom-mic-single-ended --serve
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target

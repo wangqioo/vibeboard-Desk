@@ -1,0 +1,3 @@
+https://github.com/skeeto/webgl-game-of-life
+SHA 8020164bf2cbb98efaf12c6176cf67e57454cc11
+Unlicense; original GPU step shader retained. ATOM replaces UI and display fragment with circular LED dots.

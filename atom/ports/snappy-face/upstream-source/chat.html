@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brainsy - AI Chat Assistant</title>
+  <link rel="stylesheet" href="snappy.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #2C2416;  /* Solid warm brown - no gradient */
+      color: #FFF8F0;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Main Layout */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Face Area */
+    .face-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px 20px;
+      position: relative;
+    }
+
+    #brainsy-container {
+      transform: scale(2.2);  /* Bigger! Fill more screen like Nick Jr Face */
+      transition: transform 0.5s ease;
+    }
+
+    #brainsy-container.sleeping {
+      transform: scale(2.0);
+      opacity: 0.6;
+    }
+
+    /* Status Text */
+    .status-text {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.9rem;
+      color: #FFB84D;
+      opacity: 0.8;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* Chat Messages Area */
+    .messages-area {
+      max-height: 200px;  /* Smaller - face is the star */
+      overflow-y: auto;
+      padding: 15px;
+      margin: 0 20px;
+      background: rgba(0, 0, 0, 0.15);  /* More subtle */
+      border-radius: 20px 20px 0 0;
+      border: 2px solid rgba(255, 140, 66, 0.15);  /* Less prominent */
+      border-bottom: none;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      padding: 12px 18px;
+      border-radius: 18px;
+      max-width: 80%;
+      line-height: 1.5;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      background: rgba(255, 140, 66, 0.2);
+      border: 1px solid rgba(255, 140, 66, 0.4);
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .message.assistant {
+      background: rgba(255, 184, 77, 0.15);
+      border: 1px solid rgba(255, 184, 77, 0.3);
+      margin-right: auto;
+    }
+
+    .message-label {
+      font-size: 0.75rem;
+      opacity: 0.6;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    /* Input Area */
+    .input-area {
+      padding: 15px;
+      margin: 0 20px 20px;
+      background: rgba(0, 0, 0, 0.2);  /* More subtle */
+      border-radius: 0 0 20px 20px;
+      border: 2px solid rgba(255, 140, 66, 0.15);  /* Less prominent */
+      border-top: 1px solid rgba(255, 140, 66, 0.1);
+    }
+
+    .input-container {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    #user-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 140, 66, 0.4);
+      border-radius: 25px;
+      padding: 14px 20px;
+      color: #FFF8F0;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: none;
+      max-height: 120px;
+      transition: all 0.3s ease;
+    }
+
+    #user-input:focus {
+      outline: none;
+      border-color: #FF8C42;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 20px rgba(255, 140, 66, 0.2);
+    }
+
+    #user-input::placeholder {
+      color: rgba(255, 248, 240, 0.4);
+    }
+
+    /* Buttons */
+    .btn {
+      background: linear-gradient(135deg, #FF8C42 0%, #FFB84D 100%);
+      border: none;
+      padding: 14px 24px;
+      border-radius: 25px;
+      color: #2C2416;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255, 140, 66, 0.5);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.voice {
+      width: 56px;
+      height: 56px;
+      padding: 0;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .btn.voice.recording {
+      background: linear-gradient(135deg, #FF4444 0%, #FF6B6B 100%);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+      }
+      50% {
+        box-shadow: 0 4px 30px rgba(255, 68, 68, 0.8);
+      }
+    }
+
+    /* Thinking Indicator */
+    .thinking-indicator {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(255, 184, 77, 0.15);
+      border: 1px solid rgba(255, 184, 77, 0.3);
+      border-radius: 18px;
+      margin-bottom: 15px;
+      max-width: 120px;
+    }
+
+    .thinking-indicator.active {
+      display: flex;
+    }
+
+    .thinking-dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .thinking-dots span {
+      width: 8px;
+      height: 8px;
+      background: #FFB84D;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .thinking-dots span:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .thinking-dots span:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1.2);
+        opacity: 1;
+      }
+    }
+
+    /* Scrollbar */
+    .messages-area::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .messages-area::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb {
+      background: rgba(255, 140, 66, 0.4);
+      border-radius: 10px;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 140, 66, 0.6);
+    }
+
+    /* Welcome Message */
+    .welcome-message {
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(255, 248, 240, 0.5);
+      font-size: 0.95rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #brainsy-container {
+        transform: scale(1.2);
+      }
+
+      .messages-area {
+        max-height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <!-- Face Area -->
+    <div class="face-area">
+      <div class="status-text" id="status-text">💤 Sleeping...</div>
+      <div id="brainsy-container" class="sleeping"></div>
+    </div>
+
+    <!-- Messages Area -->
+    <div class="messages-area" id="messages">
+      <div class="welcome-message">
+        👋 Hi! I'm Brainsy. Type or speak to chat with me!
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="thinking-indicator" id="thinking">
+        <div class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span style="font-size: 0.85rem;">Thinking...</span>
+      </div>
+
+      <div class="input-container">
+        <textarea 
+          id="user-input" 
+          placeholder="Type your message here..."
+          rows="1"
+        ></textarea>
+        <button class="btn voice" id="voice-btn" title="Voice input">🎤</button>
+        <button class="btn" id="send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="snappy.js"></script>
+  <script>
+    // Initialize Brainsy Face
+    const face = new Snappy('brainsy-container', {
+      size: 200,
+      autoStart: true,
+      blinkInterval: 4000
+    });
+
+    // Start in sleeping state
+    face.setState('sleeping');
+
+    // DOM elements
+    const messagesArea = document.getElementById('messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const voiceBtn = document.getElementById('voice-btn');
+    const statusText = document.getElementById('status-text');
+    const thinkingIndicator = document.getElementById('thinking');
+    const container = document.getElementById('brainsy-container');
+
+    // State
+    let isRecording = false;
+    let recognition = null;
+    let inactivityTimer = null;
+
+    // Wake up from sleep
+    function wakeUp() {
+      if (face.getState() === 'sleeping') {
+        container.classList.remove('sleeping');
+        face.setState('idle');
+        statusText.textContent = '👋 Hello!';
+        setTimeout(() => {
+          statusText.textContent = '';
+        }, 2000);
+      }
+      resetInactivityTimer();
+    }
+
+    // Go to sleep after inactivity
+    function goToSleep() {
+      container.classList.add('sleeping');
+      face.setState('sleeping');
+      statusText.textContent = '💤 Sleeping...';
+    }
+
+    // Reset inactivity timer (5 minutes)
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(goToSleep, 5 * 60 * 1000);
+    }
+
+    // Add message to chat
+    function addMessage(text, sender = 'assistant') {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}`;
+      
+      const label = document.createElement('div');
+      label.className = 'message-label';
+      label.textContent = sender === 'user' ? 'You' : 'Brainsy';
+      
+      const content = document.createElement('div');
+      content.textContent = text;
+      
+      messageDiv.appendChild(label);
+      messageDiv.appendChild(content);
+      messagesArea.appendChild(messageDiv);
+      
+      // Remove welcome message if exists
+      const welcome = messagesArea.querySelector('.welcome-message');
+      if (welcome) welcome.remove();
+      
+      // Scroll to bottom
+      messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    // Simulate AI response (replace with actual Clawdbot integration)
+    async function getAIResponse(userMessage) {
+      face.setState('thinking');
+      thinkingIndicator.classList.add('active');
+      statusText.textContent = '🤔 Thinking...';
+      
+      // Simulate thinking delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      thinkingIndicator.classList.remove('active');
+      face.setState('speaking');
+      statusText.textContent = '💬 Speaking...';
+      
+      // Mock response - replace with actual Clawdbot call
+      const responses = [
+        "That's a great question! Let me think about that...",
+        "I'd be happy to help you with that!",
+        "Interesting! Here's what I think...",
+        "Let me process that for a moment...",
+        "Good point! I see what you're asking."
+      ];
+      const response = responses[Math.floor(Math.random() * responses.length)];
+      
+      addMessage(response, 'assistant');
+      
+      // Speak duration based on response length
+      const words = response.split(' ').length;
+      const speakDuration = (words / 150) * 60 * 1000;
+      
+      setTimeout(() => {
+        face.setState('idle');
+        statusText.textContent = '';
+      }, speakDuration);
+    }
+
+    // Handle send
+    async function handleSend() {
+      const message = userInput.value.trim();
+      if (!message) return;
+      
+      wakeUp();
+      addMessage(message, 'user');
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      
+      await getAIResponse(message);
+    }
+
+    // Send button
+    sendBtn.addEventListener('click', handleSend);
+
+    // Enter to send
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+
+    // Auto-resize textarea
+    userInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Wake up on input focus
+    userInput.addEventListener('focus', wakeUp);
+
+    // Voice input setup
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        voiceBtn.classList.add('recording');
+        face.setState('listening');
+        statusText.textContent = '🎤 Listening...';
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        userInput.value = transcript;
+        userInput.dispatchEvent(new Event('input'));
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        voiceBtn.classList.remove('recording');
+        face.setState('idle');
+        statusText.textContent = '';
+      };
+
+      voiceBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+        } else {
+          wakeUp();
+          recognition.start();
+        }
+      });
+    } else {
+      voiceBtn.style.display = 'none';
+      console.log('Speech recognition not supported');
+    }
+
+    // Start inactivity timer
+    resetInactivityTimer();
+
+    // Face event listeners
+    face.on('stateChange', ({ state }) => {
+      console.log('Face state:', state);
+    });
+  </script>
+</body>
+</html>

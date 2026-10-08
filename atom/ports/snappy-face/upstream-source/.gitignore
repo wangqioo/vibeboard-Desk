@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build
+dist/
+build/
+*.log
+
+# Misc
+.env
+.env.local
+
+# Security - contains gateway tokens
+config.js
+*.local.html
+*.local.js
+
+# Backup copies that might contain tokens
+*.backup
+*.bak

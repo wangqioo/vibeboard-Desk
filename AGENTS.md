@@ -1,0 +1,15 @@
+# ATOM application requirements
+
+Every application created, imported, ported from GitHub, or updated for ATOM must have its own purpose-specific desktop icon. This applies equally to Codex development and the on-device workshop. Do not ship the shared plus-sign placeholder.
+
+Use a bundled static `icon.svg`, a square `viewBox="0 0 64 64"`, and `manifest.icon="icon.svg"`. Design a recognizable transparent, monochrome pictogram related to the actual function. Use currentColor for strokes/intentional solid marks; the active theme owns colors, tile surface, border, corner radius and stroke weight. Never bake a theme palette, background tile, badge or shadow into application icons. Avoid tiny text, external resources, embedded images, scripts, events, links, and active SVG content. Keep icons below 32 KiB. Preserve valid user-designed icons on updates. New apps must include their icon in the source bundle; installer auto-generation is a compatibility fallback, not a substitute for reviewing the icon's design.
+
+Run `python3 atom/tools/prepare_icon_bundles.py` after rebuilding port bundles or templates, and verify icons on the real desktop. `atom/app_icons.py` contains the shared validator and deterministic fallback generator. Use `atom/tools/ensure_app_icons.py` to backfill installed folders without changing installation timestamps or desktop order.
+
+Keep applications fullscreen with no permanent system chrome. Scroll only within necessary content regions. Preserve Space/Home return behavior and homepage wheel pagination. Newly installed apps append to the desktop; updates retain their position. When deploying complete GitHub ports, copy all resources, not just the entry-only JSON bundle. Never expose model credentials in app files, logs, screenshots, or commits.
+
+Theme packages may provide validated `icons` tokens and per-app `overrides`. All built-in and installed icons use the same theme renderer. Workshop theme selection is a design reference; apps follow the current system theme by default. A fixed app theme is an explicit opt-in. Ported app control chrome should opt into `manifest.theme_ui="controls"`; preserve meaningful scene and data colors.
+
+Application lifecycle and persistence: the shell injects AtomApp v1 before app scripts. For async initialization use AtomApp.deferReady()/ready(). Use AtomApp.load(defaultState) and await AtomApp.save(JSON) for device persistence, with a 64 KiB per-app limit; preview storage is temporary. Never assume localStorage in opaque app iframes. Report save success only after acknowledgment; if reading fails offer retry and avoid overwriting existing records with defaults. Release timers, audio and GPU work with AtomApp.onSuspend. Keep task feedback tied to actual states and respect reduced motion. See atom/docs/app-contract.md.
+
+Desktop navigation: exiting an application returns to the desktop page from which it was opened. Pressing Space/Home while already on the desktop returns to the first page. Apply the same return behavior to built-in apps, installed apps, previews and launch-error screens.

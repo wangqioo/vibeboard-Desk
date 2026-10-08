@@ -1,0 +1,2 @@
+GPL-3.0-or-later. Original header unchanged, compiled to WebAssembly with Canvas drawing imports and Arduino clock/random shim. 30fps 160x100 logical eyes, 3x display; pointer gaze, idle sleep, theme-aware controls; content colors selectable. No audio/network/model required.
+Controls hide after2.2s; right-click opens local panel, no document scrolling. Apps offline after install. New app append; Space via system bridge.

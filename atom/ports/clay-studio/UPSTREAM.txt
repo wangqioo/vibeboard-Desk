@@ -1,0 +1,3 @@
+https://github.com/stephomi/sculptgl
+SHA 8e45dafc0f7906e5238dfffc1a2df742bd25f29d
+ATOM adaptation: local controls, reduced complexity; upstream license retained.

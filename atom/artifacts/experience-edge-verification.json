@@ -1,0 +1,14 @@
+{
+  "failureActions": true,
+  "retryWorks": true,
+  "returned": true,
+  "delayedActions": true,
+  "lateReadyWorks": true,
+  "cleanupOnce": true,
+  "orderPreserved": true,
+  "listening": "listening",
+  "transcribing": true,
+  "missingTranscriptionIsClear": "语音暂不可用请先配置语音转写 API、模型和密钥重试转写文字输入转写配置",
+  "recordingStopped": true,
+  "textFallback": true
+}

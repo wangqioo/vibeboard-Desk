@@ -37,3 +37,14 @@ test-*.cjs
 # OS files
 .DS_Store
 Thumbs.db
+
+# ATOM private runtime data and source caches
+__pycache__/
+*.pyc
+atom/apps/
+atom/state/
+atom/vendor/
+._*
+
+# Bundled ATOM art and verification images are part of the release
+!atom/**/*.png

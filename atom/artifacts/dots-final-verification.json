@@ -1,0 +1,79 @@
+{
+  "results": [
+    {
+      "id": "dot-theater",
+      "data": {
+        "engine": "sallar/led-matrix 1.0.1",
+        "before": 95,
+        "painted": 101,
+        "added": true,
+        "savedFrames": 5,
+        "badStateRejected": true,
+        "playing": true,
+        "restored": true,
+        "marquee": {
+          "mode": "text",
+          "size": [
+            64,
+            32
+          ],
+          "playing": true
+        }
+      },
+      "layout": {
+        "scroll": [
+          480,
+          360,
+          480,
+          360
+        ],
+        "controls": [
+          {
+            "id": "resolution",
+            "x": 368,
+            "y": 12,
+            "w": 96,
+            "h": 44
+          },
+          {
+            "id": "previous",
+            "x": 16,
+            "y": 308,
+            "w": 84.796875,
+            "h": 44
+          },
+          {
+            "id": "next",
+            "x": 106.796875,
+            "y": 308,
+            "w": 84.796875,
+            "h": 44
+          },
+          {
+            "id": "add",
+            "x": 197.59375,
+            "y": 308,
+            "w": 84.796875,
+            "h": 44
+          },
+          {
+            "id": "play",
+            "x": 288.390625,
+            "y": 308,
+            "w": 84.796875,
+            "h": 44
+          },
+          {
+            "id": "tools",
+            "x": 379.1875,
+            "y": 308,
+            "w": 84.796875,
+            "h": 44
+          }
+        ]
+      },
+      "home": "home"
+    }
+  ],
+  "errors": []
+}

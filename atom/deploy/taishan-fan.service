@@ -1,0 +1,10 @@
+[Unit]
+Description=Taishan fan automatic control and temporary audio quiet mode
+After=local-fs.target systemd-udevd.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/linaro/atom/deploy/fancontrol.py
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target

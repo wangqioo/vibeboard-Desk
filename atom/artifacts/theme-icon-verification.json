@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "theme": "paper",
+      "bg": "rgba(0, 0, 0, 0)",
+      "ink": "rgb(36, 38, 34)",
+      "radius": "4px",
+      "border": "solid",
+      "stroke": "2.2px",
+      "images": 0,
+      "icons": 6
+    },
+    {
+      "theme": "terminal",
+      "bg": "rgb(22, 37, 27)",
+      "ink": "rgb(89, 202, 131)",
+      "radius": "0px",
+      "border": "solid",
+      "stroke": "1.7px",
+      "images": 0,
+      "icons": 6
+    },
+    {
+      "theme": "sunshine",
+      "bg": "rgb(255, 237, 189)",
+      "ink": "rgb(48, 44, 34)",
+      "radius": "16px",
+      "border": "none",
+      "stroke": "2.9px",
+      "images": 0,
+      "icons": 6
+    },
+    {
+      "theme": "blueprint",
+      "bg": "rgba(0, 0, 0, 0)",
+      "ink": "rgb(240, 246, 255)",
+      "radius": "2px",
+      "border": "dashed",
+      "stroke": "1.6px",
+      "images": 0,
+      "icons": 6
+    }
+  ],
+  "ui": {
+    "bg": "rgb(255, 228, 155)",
+    "button": "rgb(226, 115, 40)",
+    "scroll": [
+      360,
+      360
+    ]
+  },
+  "original": "sunshine",
+  "errors": []
+}

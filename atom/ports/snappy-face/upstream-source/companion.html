@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snappy - TUI Companion</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+    }
+
+    /* THE ENTIRE SCREEN IS THE FACE */
+    body {
+      background: #FF8C42;
+      position: relative;
+      cursor: default;
+      transition: background 1.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    }
+
+    /* Eyes Container */
+    .eyes {
+      position: absolute;
+      top: 35%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 200px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+
+    /* Individual Eye */
+    .eye {
+      width: 180px;
+      height: 180px;
+      background: white;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+
+    /* Pupil */
+    .pupil {
+      width: 80px;
+      height: 80px;
+      background: #2C2416;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Highlight */
+    .pupil::after {
+      content: '';
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      width: 25px;
+      height: 25px;
+      background: white;
+      border-radius: 50%;
+    }
+
+    /* Mouth */
+    .mouth {
+      position: absolute;
+      bottom: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 80px;
+      border-bottom: 12px solid #2C2416;
+      border-radius: 0 0 300px 300px;
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+
+    /* Blinking */
+    .eye.blink {
+      height: 20px;
+      transition: all 0.15s ease-out;
+    }
+
+    .eye.blink .pupil {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0);
+      transition: all 0.15s ease-out;
+    }
+
+    /* Status indicator */
+    .status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border-radius: 20px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+
+    .status.connected { background: rgba(0,200,0,0.5); }
+    .status.error { background: rgba(200,0,0,0.5); }
+
+    /* States from face.html */
+    .mouth.talking {
+      animation: talk 0.3s ease-in-out infinite;
+    }
+
+    @keyframes talk {
+      0%, 100% {
+        height: 80px;
+        border-radius: 0 0 300px 300px;
+      }
+      50% {
+        height: 120px;
+        border-radius: 0 0 200px 200px;
+      }
+    }
+
+    .mouth.happy {
+      height: 100px;
+      border-radius: 0 0 400px 400px;
+      border-bottom-width: 15px;
+    }
+
+    body.thinking {
+      background: #9B59B6;
+    }
+
+    .eyes.thinking {
+      transform: translate(-45%, -60%);
+    }
+
+    body.processing {
+      background: #3498DB;
+    }
+
+    .eye.processing {
+      animation: processing-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes processing-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    body.happy {
+      background: #FFD93D;
+    }
+
+    body.excited {
+      background: #FFD93D;
+      animation: excited-pulse 0.6s ease-in-out infinite;
+    }
+
+    @keyframes excited-pulse {
+      0%, 100% { background: #FFD93D; }
+      50% { background: #FFC107; }
+    }
+
+    .eye.excited {
+      width: 220px;
+      height: 220px;
+      animation: wiggle-eyes 0.4s ease-in-out infinite;
+    }
+
+    @keyframes wiggle-eyes {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-5deg); }
+      75% { transform: rotate(5deg); }
+    }
+
+    .mouth.excited {
+      width: 400px;
+      height: 120px;
+      border-bottom: 18px solid #2C2416;
+      border-radius: 0 0 400px 400px;
+    }
+
+    body.listening {
+      background: #95E1D3;
+    }
+
+    body.sad {
+      background: #8B9DC3;
+    }
+
+    .mouth.sad {
+      width: 200px;
+      height: 60px;
+      border-bottom: none;
+      border-top: 10px solid #2C2416;
+      border-radius: 100px 100px 0 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+
+    body.sleeping {
+      background: #FF8C42;
+      animation: breathe 4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { background: #FF8C42; }
+      50% { background: #E67A35; }
+    }
+
+    .eye.sleeping {
+      height: 8px;
+      background: #2C2416;
+    }
+
+    .eye.sleeping .pupil {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">Connecting...</div>
+
+  <div class="eyes" id="eyes">
+    <div class="eye" id="leftEye">
+      <div class="pupil"></div>
+    </div>
+    <div class="eye" id="rightEye">
+      <div class="pupil"></div>
+    </div>
+  </div>
+
+  <div class="mouth" id="mouth"></div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const CONFIG = {
+      gatewayUrl: 'http://localhost:18789',
+      token: 'YOUR_GATEWAY_TOKEN_HERE',  // Get from: clawdbot gateway config.get (See SETUP.md)
+      pollInterval: 1000,  // Poll every 1 second
+      sessionKey: 'agent:main:main'  // Your main TUI session
+    };
+
+    // ============================================
+    // DOM ELEMENTS
+    // ============================================
+    const eyes = document.getElementById('eyes');
+    const leftEye = document.getElementById('leftEye');
+    const rightEye = document.getElementById('rightEye');
+    const mouth = document.getElementById('mouth');
+    const status = document.getElementById('status');
+    const body = document.body;
+
+    let currentState = 'idle';
+    let blinkInterval;
+    let lastMessageId = null;
+
+    // ============================================
+    // STATE MANAGEMENT
+    // ============================================
+    function setState(newState) {
+      if (currentState === newState) return;
+      
+      currentState = newState;
+      
+      // Clear classes
+      mouth.className = 'mouth';
+      eyes.className = 'eyes';
+      body.className = '';
+      leftEye.className = 'eye';
+      rightEye.className = 'eye';
+
+      // Apply new state
+      switch(newState) {
+        case 'thinking':
+          body.className = 'thinking';
+          eyes.className = 'eyes thinking';
+          break;
+        
+        case 'processing':
+          body.className = 'processing';
+          leftEye.className = 'eye processing';
+          rightEye.className = 'eye processing';
+          break;
+        
+        case 'speaking':
+        case 'talking':
+          mouth.className = 'mouth talking';
+          break;
+        
+        case 'happy':
+          body.className = 'happy';
+          mouth.className = 'mouth happy';
+          break;
+        
+        case 'excited':
+          body.className = 'excited';
+          leftEye.className = 'eye excited';
+          rightEye.className = 'eye excited';
+          mouth.className = 'mouth excited';
+          break;
+        
+        case 'listening':
+          body.className = 'listening';
+          break;
+        
+        case 'sad':
+          body.className = 'sad';
+          mouth.className = 'mouth sad';
+          break;
+        
+        case 'sleeping':
+          body.className = 'sleeping';
+          leftEye.className = 'eye sleeping';
+          rightEye.className = 'eye sleeping';
+          break;
+      }
+      
+      console.log('State:', newState);
+    }
+
+    // ============================================
+    // BLINKING
+    // ============================================
+    function blink() {
+      leftEye.classList.add('blink');
+      rightEye.classList.add('blink');
+      
+      setTimeout(() => {
+        leftEye.classList.remove('blink');
+        rightEye.classList.remove('blink');
+      }, 150);
+    }
+
+    function startBlinking() {
+      if (blinkInterval) clearInterval(blinkInterval);
+      blinkInterval = setInterval(() => {
+        if (currentState !== 'sleeping') {
+          blink();
+        }
+      }, 3000 + Math.random() * 2000);
+    }
+
+    // ============================================
+    // SESSION MONITORING
+    // ============================================
+    async function checkSession() {
+      try {
+        const response = await fetch(`${CONFIG.gatewayUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${CONFIG.token}`
+          },
+          body: JSON.stringify({
+            model: 'clawdbot:main',
+            messages: [{ role: 'user', content: 'STATUS_CHECK' }],
+            user: 'snappy-companion',
+            max_tokens: 1
+          })
+        });
+
+        if (response.ok) {
+          status.textContent = '🟢 Connected to Clawdbot';
+          status.className = 'status connected';
+          return true;
+        } else {
+          throw new Error('Not connected');
+        }
+      } catch (error) {
+        status.textContent = '🔴 Disconnected';
+        status.className = 'status error';
+        setState('sleeping');
+        return false;
+      }
+    }
+
+    // ============================================
+    // ACTIVITY DETECTION
+    // ============================================
+    let lastActivity = Date.now();
+    let activityCheckInterval;
+
+    function detectActivity() {
+      // Monitor for user/assistant activity
+      // For now, use simple polling
+      const now = Date.now();
+      const idle = now - lastActivity;
+
+      if (idle < 2000) {
+        // Recent activity - thinking or processing
+        if (Math.random() > 0.5) {
+          setState('thinking');
+        } else {
+          setState('processing');
+        }
+      } else if (idle < 5000) {
+        // Just finished - happy
+        setState('happy');
+        setTimeout(() => setState('idle'), 3000);
+      } else if (idle < 30000) {
+        // Idle
+        setState('idle');
+      } else {
+        // Sleeping
+        setState('sleeping');
+      }
+    }
+
+    // Simulate activity detection by monitoring window focus
+    window.addEventListener('focus', () => {
+      lastActivity = Date.now();
+      setState('happy');
+      setTimeout(() => setState('idle'), 2000);
+    });
+
+    document.addEventListener('keypress', () => {
+      lastActivity = Date.now();
+      setState('listening');
+    });
+
+    document.addEventListener('click', () => {
+      lastActivity = Date.now();
+      setState('excited');
+      setTimeout(() => setState('idle'), 1500);
+    });
+
+    // ============================================
+    // MOUSE TRACKING
+    // ============================================
+    document.addEventListener('mousemove', (e) => {
+      if (currentState === 'idle' || currentState === 'happy' || currentState === 'listening') {
+        movePupils(e.clientX, e.clientY);
+      }
+    });
+
+    function movePupils(x, y) {
+      const pupils = document.querySelectorAll('.pupil');
+      
+      pupils.forEach((pupil, index) => {
+        const eye = pupil.parentElement;
+        const rect = eye.getBoundingClientRect();
+        const eyeX = rect.left + rect.width / 2;
+        const eyeY = rect.top + rect.height / 2;
+        
+        const angle = Math.atan2(y - eyeY, x - eyeX);
+        const distance = Math.min(30, Math.hypot(x - eyeX, y - eyeY) / 10);
+        
+        const pupilX = Math.cos(angle) * distance;
+        const pupilY = Math.sin(angle) * distance;
+        
+        pupil.style.transform = `translate(calc(-50% + ${pupilX}px), calc(-50% + ${pupilY}px))`;
+      });
+    }
+
+    // ============================================
+    // INITIALIZE
+    // ============================================
+    console.log('🎭 Snappy TUI Companion');
+    console.log('Gateway:', CONFIG.gatewayUrl);
+    
+    setState('happy');
+    startBlinking();
+    
+    // Check connection
+    checkSession().then(connected => {
+      if (connected) {
+        setState('excited');
+        setTimeout(() => setState('idle'), 2000);
+      }
+    });
+
+    // Periodic connection check
+    setInterval(checkSession, 10000);
+
+    // Activity monitoring
+    activityCheckInterval = setInterval(detectActivity, 1000);
+
+    // Wake up message
+    setTimeout(() => {
+      setState('happy');
+      setTimeout(() => setState('idle'), 2000);
+    }, 500);
+  </script>
+</body>
+</html>

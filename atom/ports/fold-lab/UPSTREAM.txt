@@ -1,0 +1,3 @@
+https://github.com/amandaghassaei/OrigamiSimulator
+SHA 7855983a613c879c171b2b1557f8cd102d2640cf
+Core simulation retained; ATOM replaces controls and reduces default workload.

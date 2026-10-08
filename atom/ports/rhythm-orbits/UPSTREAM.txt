@@ -1,0 +1,3 @@
+https://github.com/hisschemoller/music-pattern-generator
+SHA: 2c2032d0744b00ad2105423bdd7160cf83d64cd4
+develop 2.3.0-beta; complete upstream src in upstream-source; code and LICENSE GPL-3.0-or-later (package metadata says LGPL-3.0)

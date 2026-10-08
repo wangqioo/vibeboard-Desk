@@ -1,0 +1,27 @@
+{
+  "theme": "sunshine",
+  "last4": [
+    "dot-life",
+    "dot-image",
+    "dot-waves",
+    "dot-theater"
+  ],
+  "themes": [
+    {
+      "theme": "paper",
+      "count": 2,
+      "glyphs": 2,
+      "color": "rgb(36, 38, 34)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "radius": "4px"
+    },
+    {
+      "theme": "terminal",
+      "count": 2,
+      "glyphs": 2,
+      "color": "rgb(89, 202, 131)",
+      "bg": "rgb(22, 37, 27)",
+      "radius": "0px"
+    }
+  ]
+}

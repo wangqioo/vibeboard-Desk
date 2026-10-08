@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "id": "water-pool",
+      "fps": 20,
+      "glError": 0,
+      "canvas": [
+        384,
+        288
+      ],
+      "scroll": [
+        360,
+        360
+      ],
+      "ready": true,
+      "home": "home"
+    },
+    {
+      "id": "fluid-paint",
+      "fps": 34,
+      "glError": 0,
+      "canvas": [
+        480,
+        360
+      ],
+      "scroll": [
+        360,
+        360
+      ],
+      "ready": true,
+      "home": "home"
+    }
+  ],
+  "errors": []
+}

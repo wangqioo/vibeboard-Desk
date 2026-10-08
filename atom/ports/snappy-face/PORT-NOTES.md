@@ -1,0 +1,2 @@
+MIT original Snappy engine and CSS retained. Upstream code supports7 states despite README saying13; ATOM adds6 matching CSS states for actual13. Continuous pointer gaze, theme tokens, automatic sleep/reel. Speaking is visual animation only; no actual microphone/agent/TTS connection claimed.
+Controls hide after2.2s; right-click opens local panel, no document scrolling. Apps offline after install. New app append; Space via system bridge.

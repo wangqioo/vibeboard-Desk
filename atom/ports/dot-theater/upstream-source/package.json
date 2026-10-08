@@ -1,0 +1,38 @@
+{
+  "name": "led-matrix",
+  "version": "1.0.1",
+  "description": "Utility for storing graphical data in a matrix",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "npm run build && karmatic",
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sallar/led-matrix.git"
+  },
+  "keywords": [
+    "matrix",
+    "led",
+    "rgb",
+    "html5",
+    "canvas",
+    "graphics",
+    "bitmap"
+  ],
+  "author": "Sallar Kaboli <sallar.kaboli@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sallar/led-matrix/issues"
+  },
+  "homepage": "https://github.com/sallar/led-matrix#readme",
+  "dependencies": {
+    "matrix-display-store": "^1.0.0"
+  },
+  "devDependencies": {
+    "karmatic": "^1.0.6",
+    "typescript": "^2.8.1"
+  }
+}

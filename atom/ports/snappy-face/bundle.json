@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "id": "snappy-face",
+    "name": "卡通伙伴",
+    "description": "Snappy · 倾听、思考与卡通表情",
+    "entry": "index.html",
+    "icon": "icon.svg",
+    "theme_ui": "controls",
+    "layout": "fullscreen"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh\"><head><meta charset=\"utf-8\"><title>卡通伙伴</title><link rel=\"stylesheet\" href=\"common.css\"><link rel=\"stylesheet\" href=\"snappy.css\"><link rel=\"stylesheet\" href=\"snappy-extra.css\"><style>#stage{display:flex;align-items:center;justify-content:center}</style></head><body><main id=\"stage\"><div id=\"face\"></div></main><button id=\"menu\" aria-label=\"打开控制\">···</button><section id=\"panel\" class=\"atomtools\" hidden><header>卡通伙伴<button id=\"close\" aria-label=\"关闭控制\">×</button></header><div class=\"row\"><select id=\"mood\" aria-label=\"状态\"></select></div><div class=\"row\"><button id=\"speak\">说话动画</button><button id=\"auto\">自动状态：开</button></div><p id=\"status\">准备动画…</p><p>控制会自动隐藏 · 空格键返回桌面</p></section><div id=\"hint\">看向鼠标 · 点击心动 · 闲置打瞌睡</div><div id=\"error\"></div><script src=\"common.js\"></script><script src=\"engine.js\"></script><script src=\"main.js\"></script></body></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.4\"><rect x=\"11\" y=\"19\" width=\"42\" height=\"35\" rx=\"14\" /><path d=\"M32 19v-7m-11 20h3m16 0h3M23 43q9 8 18 0\" /><circle cx=\"32\" cy=\"8\" r=\"4\" /></svg>"
+  }
+}

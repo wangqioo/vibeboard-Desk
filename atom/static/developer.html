@@ -1,0 +1,11 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ATOM 开发指南</title><link rel="stylesheet" href="/style.css"></head><body style="overflow:auto;height:auto"><main style="overflow:visible"><a href="/">← 返回 ATOM</a><h1 style="margin-top:16px">连接与部署</h1><p>在开发者页面查看设备局域网 IP。电脑和 ATOM 连接同一个局域网后，在电脑终端运行：</p><code>ssh linaro@设备IP</code><p>SSH 使用设备现有服务和账户，请输入你的设备密码或配置公钥。默认端口是 22。开发模式不会自动配置 SSH，也不会自动连接电脑 Agent。</p><h2 style="margin-top:16px">制作应用包</h2><p>应用使用 HTML、CSS、JavaScript，入口固定 index.html。保存以下结构为 UTF-8 JSON 文件：</p><pre style="white-space:pre-wrap;font-size:12px;background:#202c3a;padding:12px;border-radius:12px">{
+  "manifest": {
+    "id": "hello",
+    "name": "你好",
+    "description": "第一个桌面应用",
+    "entry": "index.html"
+  },
+  "files": {
+    "index.html": "&lt;!doctype html&gt;&lt;html lang='zh-CN'&gt;&lt;meta charset='utf-8'&gt;&lt;body&gt;你好，ATOM！&lt;/body&gt;&lt;/html&gt;"
+  }
+}</pre><p>在设备的“应用管理”中选择“安装应用”，打开 JSON 文件。更新时选择“导入更新”，保持相同 id。导入包最多 2 MiB，最多 100 个文本文件。</p><p>应用隔离运行，无法直接操作主页或调用设备管理 API。硬件权限与电脑 Agent 接口需要后续显式接入。</p></main></body></html>

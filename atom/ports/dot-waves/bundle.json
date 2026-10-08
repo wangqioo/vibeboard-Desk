@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "id": "dot-waves",
+    "name": "点阵波场",
+    "description": "原版网格波动 · 七种点阵与鼠标排斥",
+    "entry": "index.html",
+    "icon": "icon.svg",
+    "layout": "fullscreen",
+    "theme_ui": "controls"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>点阵波场</title><style>html,body{height:100%;width:100%;margin:0;overflow:hidden;font-family:sans-serif;background:#070707}#field{background:#070707;display:block;width:100%;height:calc(100% - 62px);touch-action:none}.hint{position:absolute;top:10px;left:12px;color:#b8c2cd;font-size:14px;pointer-events:none}.tools{height:62px;box-sizing:border-box;padding:10px;display:flex;align-items:center;gap:8px;background:var(--card,#20282d);color:var(--ink,#fff);border-top:1px solid var(--line,#414d55)}button,select{height:40px;border:1px solid var(--line,#52616b);border-radius:8px;background:var(--card,#263640);color:inherit;font:15px sans-serif;padding:0 9px;flex-shrink:0}select{width:118px}label{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}input{width:74px;height:40px;accent-color:var(--accent,#8cbfdc)}button:focus-visible,select:focus-visible{outline:2px solid var(--accent,#9ccbe8)}</style></head><body><canvas id=\"field\"></canvas><div class=\"hint\" id=\"hint\">点阵波场 · 波纹明暗沿网格传播</div><div class=\"tools\"><select id=\"mode\" aria-label=\"点阵模式\"><option value=\"shimmer\">涟漪点阵</option><option value=\"grid\">网格闪烁</option><option value=\"twist\">螺旋点阵</option><option value=\"organic\">有机波场</option><option value=\"aurora\">极光点阵</option><option value=\"morph\">流变点阵</option><option value=\"displace\">鼠标排斥</option></select><label>速度<input id=\"speed\" aria-label=\"波动速度\" type=\"range\" min=\"20\" max=\"180\" value=\"100\"></label><button id=\"pause\">暂停</button><button id=\"reset\">重置</button></div><script type=\"module\" crossorigin=\"anonymous\" src=\"app.js\"></script></body></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><circle cx=\"14\" cy=\"18\" r=\"2\" /><circle cx=\"26\" cy=\"14\" r=\"3\" /><circle cx=\"39\" cy=\"18\" r=\"4\" /><circle cx=\"51\" cy=\"25\" r=\"2\" /><circle cx=\"12\" cy=\"32\" r=\"3\" /><circle cx=\"26\" cy=\"30\" r=\"5\" /><circle cx=\"41\" cy=\"34\" r=\"3\" /><circle cx=\"53\" cy=\"40\" r=\"2\" /><circle cx=\"17\" cy=\"48\" r=\"2\" /><circle cx=\"30\" cy=\"47\" r=\"3\" /><circle cx=\"44\" cy=\"50\" r=\"2\" /></svg>"
+  }
+}

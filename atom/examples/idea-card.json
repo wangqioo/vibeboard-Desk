@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "id": "idea-card",
+    "name": "灵感卡",
+    "description": "点击抽取一个创作提示",
+    "entry": "index.html",
+    "icon": "icon.svg"
+  },
+  "files": {
+    "index.html": "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{margin:0;background:#14232b;color:#fff;font:20px sans-serif;text-align:center;padding:16px;box-sizing:border-box}h1{font-size:26px;margin:8px}button{font:20px sans-serif;border:0;border-radius:16px;padding:14px 24px;background:#9de7ce;color:#123;margin:12px;min-height:52px}p{line-height:1.5}</style><h1>灵感卡</h1><p id=\"card\" style=\"min-height:120px;display:flex;align-items:center;justify-content:center;font-size:25px\">给桌面上的一件物品设计一个新用途。</p><button id=\"next\">换一张</button><script>var cards=['给桌面上的一件物品设计一个新用途。','把今天最麻烦的一件事做成一个小按钮。','做一个不用文字也能表达心情的界面。','设计一个让你愿意休息两分钟的小应用。','如果时钟会说话，它今天会提醒你什么？'];var index=0;document.getElementById('next').onclick=function(){index=(index+1)%cards.length;document.getElementById('card').textContent=cards[index]};</script></html>",
+    "icon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"><title>灵感卡</title><g transform=\"translate(5 5) scale(.84)\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M25 42h14M27 48h10M24 36c-13-14 3-27 14-18 9 8 1 16 0 18v6H26v-6Z\" /></g></svg>"
+  }
+}
